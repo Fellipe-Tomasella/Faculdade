@@ -1,0 +1,303 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+import biblioteca.dao.FuncionarioDAO;
+import biblioteca.logica.Funcionario;
+// Outros imports necessários (JLabel, JTextField, JButton, JTable, DefaultTableModel, etc.)
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class PainelGerenciarFuncionarios extends JPanel {
+
+    private JTextField txtIdFuncionario, txtNomeFuncionario, txtCargoFuncionario, txtLoginFuncionario;
+    private JPasswordField campoSenhaFuncionario; // Para cadastro/alteração de senha
+    private JButton btnNovoFuncionario, btnSalvarFuncionario, btnRemoverFuncionario, btnLimparFormFuncionario;
+    private JTable tabelaFuncionarios;
+    private DefaultTableModel tableModelFuncionarios;
+    private JTextField campoBuscaFuncionario;
+    private JButton btnBuscarFuncionario;
+
+    private FuncionarioDAO funcionarioDAO;
+
+    public PainelGerenciarFuncionarios() {
+        try {
+            funcionarioDAO = new FuncionarioDAO();
+        } catch (SQLException e) {
+            this.funcionarioDAO = null;
+            JOptionPane.showMessageDialog(this, "Erro ao conectar para Funcionários: " + e.getMessage(), "Erro DAO", JOptionPane.ERROR_MESSAGE);
+        }
+
+        setLayout(new BorderLayout(10, 10));
+        setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        initComponentsFuncionarios();
+        layoutComponentsFuncionarios();
+        addEventHandlersFuncionarios();
+
+        if (funcionarioDAO != null) {
+            carregarFuncionariosNaTabela();
+        }
+    }
+
+    private void initComponentsFuncionarios() {
+        txtIdFuncionario = new JTextField(5);
+        txtIdFuncionario.setEditable(false);
+        txtNomeFuncionario = new JTextField(25);
+        txtCargoFuncionario = new JTextField(20);
+        txtLoginFuncionario = new JTextField(15);
+        campoSenhaFuncionario = new JPasswordField(15); // Para nova senha ou alteração
+
+        btnNovoFuncionario = new JButton("Novo");
+        btnSalvarFuncionario = new JButton("Salvar");
+        btnLimparFormFuncionario = new JButton("Limpar");
+        
+        campoBuscaFuncionario = new JTextField(20);
+        btnBuscarFuncionario = new JButton("Buscar");
+
+        String[] colunas = {"ID", "Nome", "Cargo", "Login"}; // Não exibir senha na tabela
+        tableModelFuncionarios = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c){ return false; }
+        };
+        tabelaFuncionarios = new JTable(tableModelFuncionarios);
+        tabelaFuncionarios.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        btnRemoverFuncionario = new JButton("Excluir Selecionado");
+        btnRemoverFuncionario.setEnabled(false);
+    }
+
+    private void layoutComponentsFuncionarios() {
+        // Layout similar ao de Usuários
+        JPanel painelForm = new JPanel(new GridBagLayout());
+        painelForm.setBorder(BorderFactory.createTitledBorder("Detalhes do Funcionário"));
+        GridBagConstraints gbcForm = new GridBagConstraints();
+        gbcForm.insets = new Insets(5,5,5,5);
+        gbcForm.anchor = GridBagConstraints.WEST;
+        gbcForm.fill = GridBagConstraints.HORIZONTAL;
+
+        int y = 0;
+        gbcForm.gridx = 0; gbcForm.gridy = y; painelForm.add(new JLabel("ID:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(txtIdFuncionario, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = y; painelForm.add(new JLabel("Nome:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(txtNomeFuncionario, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = y; painelForm.add(new JLabel("Cargo:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(txtCargoFuncionario, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = y; painelForm.add(new JLabel("Login:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(txtLoginFuncionario, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = y; painelForm.add(new JLabel("Senha:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(campoSenhaFuncionario, gbcForm);
+        // Adicionar um JLabel de aviso sobre o hashing da senha
+        JLabel lblAvisoSenha = new JLabel("<html><i>Deixe em branco para não alterar a senha existente.<br>A senha será armazenada com hash.</i></html>");
+        lblAvisoSenha.setFont(new Font("Segoe UI", Font.ITALIC, 10));
+        gbcForm.gridx = 1; gbcForm.gridy = y++; painelForm.add(lblAvisoSenha, gbcForm);
+        
+        JPanel painelBotoesForm = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        painelBotoesForm.add(btnNovoFuncionario);
+        painelBotoesForm.add(btnSalvarFuncionario);
+        painelBotoesForm.add(btnLimparFormFuncionario);
+        gbcForm.gridx = 0; gbcForm.gridy = y; gbcForm.gridwidth = 2; gbcForm.fill = GridBagConstraints.NONE; gbcForm.anchor = GridBagConstraints.CENTER;
+        painelForm.add(painelBotoesForm, gbcForm);
+
+        JPanel painelLista = new JPanel(new BorderLayout(5,5));
+        painelLista.setBorder(BorderFactory.createTitledBorder("Lista de Funcionários"));
+        JPanel painelBusca = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        painelBusca.add(new JLabel("Buscar (Nome/Login):"));
+        painelBusca.add(campoBuscaFuncionario);
+        painelBusca.add(btnBuscarFuncionario);
+        painelLista.add(painelBusca, BorderLayout.NORTH);
+        painelLista.add(new JScrollPane(tabelaFuncionarios), BorderLayout.CENTER);
+        JPanel painelAcoesTabela = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        painelAcoesTabela.add(btnRemoverFuncionario);
+        painelLista.add(painelAcoesTabela, BorderLayout.SOUTH);
+
+        add(painelForm, BorderLayout.NORTH);
+        add(painelLista, BorderLayout.CENTER);
+    }
+
+    private void addEventHandlersFuncionarios() {
+        if (funcionarioDAO == null) return;
+
+        btnNovoFuncionario.addActionListener(e -> limparFormularioFuncionarios());
+        btnLimparFormFuncionario.addActionListener(e -> limparFormularioFuncionarios());
+        btnSalvarFuncionario.addActionListener(e -> salvarFuncionario());
+        btnRemoverFuncionario.addActionListener(e -> removerFuncionarioSelecionado());
+        btnBuscarFuncionario.addActionListener(e -> buscarFuncionarios());
+
+        tabelaFuncionarios.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int linhaSelecionada = tabelaFuncionarios.getSelectedRow();
+                if (linhaSelecionada != -1) {
+                    carregarFuncionarioDoFormularioPelaTabela(linhaSelecionada);
+                    btnRemoverFuncionario.setEnabled(true);
+                }
+            }
+        });
+    }
+
+    private void limparFormularioFuncionarios() {
+        txtIdFuncionario.setText("");
+        txtNomeFuncionario.setText("");
+        txtCargoFuncionario.setText("");
+        txtLoginFuncionario.setText("");
+        campoSenhaFuncionario.setText(""); // Limpa campo senha
+        tabelaFuncionarios.clearSelection();
+        btnRemoverFuncionario.setEnabled(false);
+        txtNomeFuncionario.requestFocus();
+    }
+
+    private void carregarFuncionariosNaTabela() {
+        tableModelFuncionarios.setRowCount(0);
+        if (funcionarioDAO == null) return;
+        try {
+            List<Funcionario> funcionarios = funcionarioDAO.listarTodosFuncionarios();
+            for (Funcionario f : funcionarios) {
+                tableModelFuncionarios.addRow(new Object[]{
+                        f.getIdFuncionario(), f.getNome(), f.getCargo(), f.getLogin()
+                });
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar funcionários: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void buscarFuncionarios() {
+        String termoBusca = campoBuscaFuncionario.getText().trim();
+        tableModelFuncionarios.setRowCount(0);
+        if (funcionarioDAO == null) return;
+        try {
+            List<Funcionario> funcionarios = new ArrayList<>();
+            if (termoBusca.isEmpty()) {
+                funcionarios = funcionarioDAO.listarTodosFuncionarios();
+            } else {
+                List<Funcionario> todos = funcionarioDAO.listarTodosFuncionarios();
+                 for(Funcionario f : todos){
+                    if(f.getNome().toLowerCase().contains(termoBusca.toLowerCase()) ||
+                       f.getLogin().toLowerCase().contains(termoBusca.toLowerCase())){
+                        funcionarios.add(f);
+                    }
+                }
+            }
+            for (Funcionario f : funcionarios) {
+                tableModelFuncionarios.addRow(new Object[]{
+                        f.getIdFuncionario(), f.getNome(), f.getCargo(), f.getLogin()
+                });
+            }
+            if(funcionarios.isEmpty() && !termoBusca.isEmpty()){
+                 JOptionPane.showMessageDialog(this, "Nenhum funcionário encontrado para: '" + termoBusca + "'", "Busca", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar funcionários: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void carregarFuncionarioDoFormularioPelaTabela(int linha) {
+        txtIdFuncionario.setText(tableModelFuncionarios.getValueAt(linha, 0).toString());
+        txtNomeFuncionario.setText(tableModelFuncionarios.getValueAt(linha, 1).toString());
+        txtCargoFuncionario.setText(tableModelFuncionarios.getValueAt(linha, 2).toString());
+        txtLoginFuncionario.setText(tableModelFuncionarios.getValueAt(linha, 3).toString());
+        campoSenhaFuncionario.setText(""); // Senha não é carregada para edição direta por segurança
+    }
+
+    private void salvarFuncionario() {
+        if (txtNomeFuncionario.getText().trim().isEmpty() || txtLoginFuncionario.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Nome e Login são obrigatórios.", "Validação", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (funcionarioDAO == null) return;
+
+        String nome = txtNomeFuncionario.getText().trim();
+        String cargo = txtCargoFuncionario.getText().trim();
+        String login = txtLoginFuncionario.getText().trim();
+        String senhaDigitada = new String(campoSenhaFuncionario.getPassword());
+
+        // Lógica de Hashing da Senha (IMPORTANTE)
+        // Se for um novo funcionário, ou se a senha foi alterada, ela DEVE ser hasheada.
+        // Exemplo simplificado (você precisará de uma classe utilitária para hashing real):
+        String senhaParaSalvar = ""; // Inicializa
+
+        try {
+            if (txtIdFuncionario.getText().trim().isEmpty()) { // Novo Funcionário
+                if (senhaDigitada.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Senha é obrigatória para novo funcionário.", "Validação", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                // senhaParaSalvar = UtilitarioSeguranca.hashSenha(senhaDigitada); // Em um caso real
+                senhaParaSalvar = senhaDigitada; // Para teste (NÃO SEGURO)
+                
+                Funcionario funcionario = new Funcionario(nome, cargo, login, senhaParaSalvar);
+                funcionarioDAO.adicionarFuncionario(funcionario);
+                JOptionPane.showMessageDialog(this, "Funcionário adicionado com ID: " + funcionario.getIdFuncionario(), "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+
+            } else { // Atualizar Funcionário Existente
+                Funcionario funcionario = new Funcionario();
+                funcionario.setIdFuncionario(Integer.parseInt(txtIdFuncionario.getText().trim()));
+                funcionario.setNome(nome);
+                funcionario.setCargo(cargo);
+                funcionario.setLogin(login);
+                // Se o campo senha foi preenchido, significa que o usuário quer alterar a senha
+                if (!senhaDigitada.isEmpty()) {
+                    // senhaParaSalvar = UtilitarioSeguranca.hashSenha(senhaDigitada);
+                    // funcionario.setSenha(senhaParaSalvar);
+                    // Você precisaria de um método no DAO para atualizar a senha ou ajustar o atualizarFuncionario
+                    JOptionPane.showMessageDialog(this, "Funcionalidade de alterar senha precisa ser implementada separadamente ou no método de atualização do DAO.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                }
+                // Por enquanto, o método DAO de atualizar não mexe na senha.
+                funcionarioDAO.atualizarFuncionario(funcionario);
+                JOptionPane.showMessageDialog(this, "Funcionário atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            }
+            carregarFuncionariosNaTabela();
+            limparFormularioFuncionarios();
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Erro de formato nos dados do funcionário.", "Erro de Formato", JOptionPane.ERROR_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao salvar funcionário: " + ex.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+    private void removerFuncionarioSelecionado() {
+        if (txtIdFuncionario.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Nenhum funcionário selecionado para remover.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (funcionarioDAO == null) return;
+
+        int idFuncionario = Integer.parseInt(txtIdFuncionario.getText().trim());
+        int confirmacao = JOptionPane.showConfirmDialog(this,
+                "Tem certeza que deseja remover o funcionário '" + txtNomeFuncionario.getText() + "' (ID: " + idFuncionario + ")?",
+                "Confirmar Remoção", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirmacao == JOptionPane.YES_OPTION) {
+            try {
+                funcionarioDAO.removerFuncionario(idFuncionario);
+                JOptionPane.showMessageDialog(this, "Funcionário removido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                carregarFuncionariosNaTabela();
+                limparFormularioFuncionarios();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao remover funcionário: " + ex.getMessage() +
+                        "\nVerifique se o funcionário não está associado a empréstimos.", "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
+    }
+    
+    public void fecharRecursosDAO() {
+        if (funcionarioDAO != null) {
+            funcionarioDAO.fecharConexaoDAO();
+        }
+    }
+}

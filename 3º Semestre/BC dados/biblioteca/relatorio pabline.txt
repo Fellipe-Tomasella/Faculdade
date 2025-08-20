@@ -1,0 +1,214 @@
+Relatório de Desenvolvimento: Sistema de Gerenciamento de Biblioteca (Aplicação Java Desktop)
+
+Data: [01 de Junho de 2025 ou Data Atual]
+Autores: Arthur Henrique A. Martins, Fellipe Melhorança B. Tomasella, Inglid Pablina de A. Sandeski, João Vitor A. Percinotto
+Instituição: Universidade do Estado de Mato Grosso – UNEMAT, Campus Sinop - Imperial
+Curso: Sistemas de Informação
+Disciplina: [Nome da Disciplina para a qual este relatório está sendo feito, ex: Programação Orientada a Objetos, Desenvolvimento de Software, etc.]
+Docente: [Nome do(a) Docente, se aplicável]
+
+1. Introdução
+
+Este relatório documenta o processo de desenvolvimento da aplicação desktop "Sistema de Gerenciamento de Biblioteca", um projeto CRUD (Create, Read, Update, Delete) concebido para otimizar as operações de uma biblioteca. O sistema foi desenvolvido utilizando a linguagem Java através do Ambiente de Desenvolvimento Integrado (IDE) Apache NetBeans, com persistência de dados gerenciada pelo SGBD MySQL. O projeto visa fornecer uma solução robusta, confiável e funcional para atender eficientemente tanto usuários quanto administradores da biblioteca.
+
+2. Objetivos do Projeto
+
+2.1. Objetivo Geral:
+Desenvolver uma aplicação desktop intuitiva e eficiente para o gerenciamento completo das operações de uma biblioteca, incluindo o controle de acervo de livros, cadastro de usuários e funcionários, e o registro e acompanhamento de empréstimos e devoluções.
+
+2.2. Objetivos Específicos:
+
+Implementar funcionalidades CRUD completas para as entidades: Livros, Usuários e Funcionários.
+
+Desenvolver um módulo robusto para registro de Empréstimos, vinculando livros, usuários e o funcionário responsável.
+
+Implementar a funcionalidade de registro de Devoluções, atualizando o status do empréstimo e a disponibilidade do livro, vinculando também o funcionário responsável pela devolução.
+
+Garantir a segurança de acesso ao sistema através de uma tela de Login para funcionários, com armazenamento seguro de senhas (hashing).
+
+Permitir a alteração de senhas de funcionários de forma segura.
+
+Permitir a edição da data de devolução prevista para empréstimos ativos.
+
+Fornecer uma interface gráfica (GUI) amigável e organizada em abas para fácil navegação entre os diferentes módulos.
+
+Implementar uma tela de Histórico de Movimentações com filtros detalhados para auditoria e consulta.
+
+Utilizar Stored Procedures no MySQL para automatizar operações críticas de empréstimo e devolução, garantindo integridade e segurança dos dados.
+
+Utilizar Views no MySQL para simplificar consultas complexas e facilitar a geração de relatórios e listagens.
+
+3. Tecnologias e Ferramentas Utilizadas
+
+Linguagem de Programação: Java (JDK 23)
+
+Ambiente de Desenvolvimento Integrado (IDE): Apache NetBeans IDE 24
+
+Sistema de Gerenciamento de Banco de Dados (SGBD): MySQL Server (versão utilizada)
+
+Driver de Conexão Banco de Dados: MySQL Connector/J (versão 8.0.33)
+
+Gerenciador de Projetos e Dependências: Apache Maven
+
+Framework/Biblioteca GUI: Java Swing
+
+Biblioteca para Aparência da Interface (Look and Feel): FlatLaf (versão 3.4.1)
+
+Biblioteca para Hashing de Senha: jBCrypt (versão 0.4)
+
+Ferramenta de Modelagem de Banco de Dados (se usada): MySQL Workbench (para design e administração do schema)
+
+4. Arquitetura da Aplicação Java
+
+4.1. Padrão de Camadas: A aplicação foi estruturada seguindo um padrão de camadas para promover a separação de responsabilidades e facilitar a manutenção:
+
+Camada de Apresentação (GUI - Pacote com.mycompany.biblioteca):
+
+Responsável pela interface com o usuário e captura de eventos.
+
+Componentes: TelaLogin (JFrame), TelaPrincipalBiblioteca (JFrame com JTabbedPane), PainelGerenciarLivros (JPanel), PainelGerenciarUsuarios (JPanel), PainelGerenciarFuncionarios (JPanel), PainelEmprestimosDevolucoes (JPanel), PainelHistoricoMovimentacoes (JPanel), e diálogos como EditarDataDevolucaoDialog (JDialog).
+
+Utiliza componentes Swing para construir as telas e interações.
+
+Camada de Lógica de Negócios (POJOs - Pacote biblioteca.logica):
+
+Contém as classes que modelam as entidades do domínio: Livro.java, Usuario.java, Funcionario.java, Emprestimo.java, HistoricoEmprestimoDetalhado.java.
+
+Estas classes encapsulam os dados e podem conter regras de negócio simples.
+
+Camada de Acesso a Dados (DAO - Pacote biblioteca.dao):
+
+Responsável por toda a comunicação com o banco de dados MySQL.
+
+Classes: LivroDAO.java, UsuarioDAO.java, FuncionarioDAO.java, EmprestimoDAO.java.
+
+Abstrai a lógica SQL da camada de apresentação, utilizando JDBC, PreparedStatements para queries seguras e CallableStatements para Stored Procedures.
+
+Camada de Banco de Dados (Utilitários - Pacote biblioteca.db):
+
+Classe CriarConexao.java responsável por estabelecer e fechar conexões com o banco de dados MySQL.
+
+4.2. Interação entre Camadas:
+
+A GUI interage com os DAOs (geralmente de forma indireta, através de métodos nos próprios painéis que instanciam e usam os DAOs).
+
+Os DAOs utilizam os POJOs para transferir dados de e para o banco de dados.
+
+A classe CriarConexao é utilizada pelos DAOs para obter a conexão JDBC.
+
+5. Implementação do Banco de Dados (MySQL)
+
+5.1. Schema: projetofinal_biblioteca.
+
+5.2. Tabelas Criadas:
+
+Livros: Detalhes dos livros (ID, título, autor, editora, gênero, ano, ISBN, quantidade disponível).
+
+Usuarios: Dados dos leitores (ID, nome, email, CPF, telefone).
+
+Funcionarios: Dados dos operadores do sistema (ID, nome, cargo, login, senha – armazenada como hash).
+
+Emprestimos: Registros de empréstimos (ID, IDs de livro, usuário, funcionário de empréstimo, funcionário de devolução, datas, status).
+
+Chaves primárias, estrangeiras e restrições de integridade foram implementadas para garantir a consistência dos dados.
+
+5.3. Views Criadas:
+
+view_livros_disponiveis: Exibe livros com quantidade_disponivel > 0. Facilita a consulta de livros aptos para empréstimo.
+
+view_historico_emprestimos_detalhado (anteriormente view_historico_emprestimos_usuario): Apresenta um histórico completo dos empréstimos, juntando dados de usuários, livros e funcionários responsáveis. Essencial para a tela de auditoria.
+
+view_emprestimos_vencidos: Lista empréstimos cuja data de devolução prevista passou e ainda não foram devolvidos, calculando os dias em atraso. Auxilia no controle de inadimplência.
+
+5.4. Stored Procedures Criadas:
+
+RegistrarEmprestimo_: Automatiza o registro de um novo empréstimo. Recebe IDs do livro, usuário, funcionário e data prevista. Realiza validações (existência de livro/usuário/funcionário, disponibilidade do livro) e atualiza a quantidade disponível do livro. Utiliza transações (START TRANSACTION, COMMIT, ROLLBACK) e SIGNAL SQLSTATE '45000' para tratamento de erros.
+
+RegistrarDevolucao_: Automatiza o registro de uma devolução. Recebe IDs do empréstimo e do funcionário. Atualiza o status do empréstimo, registra a data de devolução efetiva e incrementa a quantidade disponível do livro. Também utiliza transações e SIGNAL para erros.
+
+6. Desenvolvimento da Aplicação Java (NetBeans)
+
+6.1. Estrutura do Projeto:
+
+Projeto Maven configurado com dependências para MySQL Connector/J, FlatLaf e jBCrypt.
+
+Organização em pacotes (biblioteca.dao, biblioteca.db, biblioteca.logica, com.mycompany.biblioteca para a GUI).
+
+6.2. Implementação da Interface Gráfica (GUI):
+
+Tela de Login: Validação de credenciais de funcionário, com hashing de senha (BCrypt).
+
+Tela Principal: Uso de JTabbedPane para navegação modular.
+
+Painéis CRUD:
+
+Cada painel de gerenciamento (Livros, Usuários, Funcionários) foi construído com JPanel, utilizando GridBagLayout para os formulários e BorderLayout para a estrutura geral.
+
+JTable com DefaultTableModel para exibição de dados.
+
+Funcionalidades de busca, adição, salvamento (novo/edição), remoção e limpeza de formulário.
+
+Carregamento de dados da tabela para o formulário ao selecionar uma linha.
+
+Painel de Empréstimos/Devoluções:
+
+Interface para buscar usuários e livros por ID.
+
+Campos para definir a duração do empréstimo.
+
+Chamada às Stored Procedures RegistrarEmprestimo_ e RegistrarDevolucao_ através do EmprestimoDAO.
+
+Funcionalidade de edição de data de devolução prevista via EditarDataDevolucaoDialog.
+
+Painel de Histórico de Movimentações:
+
+Interface com múltiplos campos de filtro (datas, texto, JComboBox).
+
+Lógica para construir queries SQL dinâmicas no DAO baseadas nos filtros.
+
+Exibição dos resultados da view_historico_emprestimos_detalhado em uma JTable com ordenação por colunas.
+
+6.3. Funcionalidades Chave Implementadas:
+
+Segurança de Senha: Implementação do jBCrypt para hashing de senhas de funcionários no cadastro e verificação no login. Botão dedicado para alteração de senha de funcionário existente.
+
+Interação com Stored Procedures: Métodos nos DAOs utilizando CallableStatement para executar as procedures RegistrarEmprestimo_ e RegistrarDevolucao_, tratando as mensagens de retorno ou exceções.
+
+Uso de Views: Métodos nos DAOs para consultar as views, simplificando a lógica de busca de dados consolidados para a UI.
+
+Validação de Dados: Validações básicas na interface (campos obrigatórios, formato numérico, período de datas) antes de submeter ao DAO.
+
+Feedback ao Usuário: Uso extensivo de JOptionPane para mensagens de sucesso, erro e confirmação.
+
+Gerenciamento de Conexão: A classe CriarConexao centraliza a obtenção de conexões, e os DAOs possuem métodos fecharConexaoDAO() chamados ao fechar os painéis/aplicação.
+
+7. Desafios Específicos do Desenvolvimento Java/NetBeans e Soluções
+
+Layout Swing: O correto posicionamento e dimensionamento de componentes com GridBagLayout exigiu aprendizado e ajustes iterativos. A construção programática da UI para o PainelHistoricoMovimentacoes foi adotada para maior controle.
+
+Integração com Maven: Adicionar e gerenciar dependências (MySQL Connector, FlatLaf, jBCrypt) no pom.xml e garantir que o NetBeans as reconhecesse corretamente.
+
+Tratamento de Eventos: Implementação correta dos ActionListeners para botões e MouseListeners para tabelas (especialmente o duplo clique).
+
+Comunicação entre Janelas/Painéis: Passagem de dados para diálogos (ex: EditarDataDevolucaoDialog recebendo dados do empréstimo selecionado) e atualização da UI principal após ações em diálogos.
+
+Threading no Swing: Uso de SwingUtilities.invokeLater para garantir que as atualizações da UI e a exibição de novas janelas ocorram na Event Dispatch Thread (EDT), especialmente ao iniciar a aplicação.
+
+Refatoração e Organização: Manter o código organizado em pacotes e classes com responsabilidades claras à medida que o projeto crescia.
+
+8. Conclusão
+
+O desenvolvimento do Sistema de Gerenciamento de Biblioteca utilizando Java, NetBeans e MySQL resultou em uma aplicação funcional que atende aos objetivos propostos. O projeto permitiu a aplicação prática de conceitos de programação orientada a objetos, design de interface gráfica com Swing, acesso a banco de dados com JDBC, modelagem relacional, e a utilização de Stored Procedures e Views para otimizar e organizar as interações com o banco.
+
+Foram superados desafios relacionados ao layout da GUI, gerenciamento de dependências e à correta implementação da lógica de negócios e acesso a dados, resultando em um sistema que oferece segurança (hashing de senhas), integridade dos dados (validações, transações nas procedures) e uma interface de usuário organizada para as principais operações de uma biblioteca.
+
+9. Anexos (Opcional)
+
+Scripts SQL de criação do banco e dados de exemplo.
+
+Diagrama Entidade-Relacionamento (MER) e Lógico do banco.
+
+Prints de tela das principais interfaces da aplicação.
+
+Sinta-se à vontade para adicionar mais detalhes, remover seções que não se aplicam tanto ao foco deste relatório específico, ou me pedir para expandir algum ponto! Boa sorte com seu relatório!
+

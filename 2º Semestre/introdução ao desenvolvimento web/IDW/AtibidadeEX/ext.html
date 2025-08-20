@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário de Cliente</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Área do formulário -->
+    <div class="caixa-formulario" id="caixa-formulario">
+        <h2>Formulário de Cliente</h2>
+        <form id="formulario">
+            <label>Nome:</label>
+            <input type="text" id="nome" required>
+            
+            <label>Email:</label>
+            <input type="email" id="email" required>
+            
+            <label>Telefone:</label>
+            <input type="text" id="telefone" required>
+            
+            <label>Observação:</label>
+            <textarea id="observacao"></textarea>
+            
+            <button type="submit">Salvar</button>
+        </form>
+    </div>
+
+    <!-- Área da tabela -->
+    <div class="caixa-tabela" id="caixa-tabela" style="display: none;">
+        <h2>Dados Salvos</h2>
+        <table>
+            <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th>Observação</th>
+            </tr>
+            <tbody id="corpo-tabela">
+            </tbody>
+        </table>
+        <button id="botaoVoltar">Voltar</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

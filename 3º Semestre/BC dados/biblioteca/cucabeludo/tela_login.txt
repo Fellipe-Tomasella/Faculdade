@@ -1,0 +1,142 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+
+import biblioteca.dao.FuncionarioDAO;
+import biblioteca.logica.Funcionario;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.SQLException;
+
+public class TelaLogin extends JFrame {
+
+    private JTextField campoUsuario;
+    private JPasswordField campoSenha;
+    private JButton btnEntrar;
+    private FuncionarioDAO funcionarioDAO;
+
+    public TelaLogin() {
+        try {
+            funcionarioDAO = new FuncionarioDAO();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro crítico ao conectar ao banco de dados: " + e.getMessage() +
+                    "\nA aplicação será encerrada.",
+                    "Erro de Conexão", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+
+        setTitle("Login - Biblioteca XYZ");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setMinimumSize(new Dimension(400, 320));
+        setLocationRelativeTo(null);
+
+        JPanel painelPrincipal = new JPanel(new BorderLayout(10, 10));
+        painelPrincipal.setBackground(new Color(245, 245, 245));
+        painelPrincipal.setBorder(new EmptyBorder(40, 50, 40, 50));
+
+        JLabel lblTitulo = new JLabel("Acesso ao Sistema da Biblioteca", SwingConstants.CENTER);
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        lblTitulo.setBorder(new EmptyBorder(0, 0, 30, 0));
+        painelPrincipal.add(lblTitulo, BorderLayout.NORTH);
+
+        JPanel painelFormulario = new JPanel(new GridBagLayout());
+        painelFormulario.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 10, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel lblUsuario = new JLabel("Login (Funcionário):");
+        lblUsuario.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST;
+        painelFormulario.add(lblUsuario, gbc);
+
+        campoUsuario = new JTextField(20);
+        campoUsuario.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridx = 0; gbc.gridy = 1; gbc.weightx = 1.0;
+        painelFormulario.add(campoUsuario, gbc);
+
+        JLabel lblSenha = new JLabel("Senha:");
+        lblSenha.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridx = 0; gbc.gridy = 2;
+        painelFormulario.add(lblSenha, gbc);
+
+        campoSenha = new JPasswordField(20);
+        campoSenha.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridx = 0; gbc.gridy = 3;
+        painelFormulario.add(campoSenha, gbc);
+
+        painelPrincipal.add(painelFormulario, BorderLayout.CENTER);
+
+        btnEntrar = new JButton("ENTRAR");
+        btnEntrar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnEntrar.setForeground(Color.WHITE);
+        btnEntrar.setBackground(new Color(0, 120, 215));
+        btnEntrar.setFocusPainted(false);
+        btnEntrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnEntrar.setMargin(new Insets(10, 30, 10, 30));
+
+        JPanel painelBotao = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        painelBotao.setOpaque(false);
+        painelBotao.setBorder(new EmptyBorder(20, 0, 0, 0));
+        painelBotao.add(btnEntrar);
+        painelPrincipal.add(painelBotao, BorderLayout.SOUTH);
+
+        add(painelPrincipal);
+        pack(); // Ajusta ao tamanho dos componentes
+        setMinimumSize(getSize()); // Define o tamanho mínimo como o tamanho empacotado
+
+
+        btnEntrar.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                realizarLogin();
+            }
+        });
+
+        // Permitir login com Enter no campo de senha
+        campoSenha.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                realizarLogin();
+            }
+        });
+    }
+
+    private void realizarLogin() {
+        String login = campoUsuario.getText().trim();
+        String senhaDigitada = new String(campoSenha.getPassword());
+
+        if (login.isEmpty() || senhaDigitada.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Login e Senha são obrigatórios.", "Erro de Login", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            Funcionario funcionario = funcionarioDAO.buscarFuncionarioPorLogin(login);
+
+            // IMPORTANTE: Lógica de HASHING de senha deve ser implementada aqui!
+            // Para este exemplo, faremos uma comparação direta (NÃO SEGURO PARA PRODUÇÃO)
+            if (funcionario != null && funcionario.getSenha().equals(senhaDigitada)) {
+                JOptionPane.showMessageDialog(this, "Login bem-sucedido! Bem-vindo(a) " + funcionario.getNome() + ".", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                // Abrir a tela principal e fechar a de login
+                new TelaPrincipalBiblioteca(funcionario).setVisible(true);
+                this.dispose(); // Fecha a tela de login
+            } else {
+                JOptionPane.showMessageDialog(this, "Login ou senha inválidos.", "Erro de Login", JOptionPane.ERROR_MESSAGE);
+                campoSenha.setText(""); // Limpa o campo senha
+                campoUsuario.requestFocus(); // Volta o foco para o campo usuário
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao tentar validar login: " + ex.getMessage(), "Erro de Banco de Dados", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+}

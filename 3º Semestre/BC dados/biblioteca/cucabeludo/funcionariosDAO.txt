@@ -1,0 +1,101 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package biblioteca.dao;
+
+import biblioteca.db.CriarConexao;
+import biblioteca.logica.Funcionario;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+
+public class FuncionarioDAO {
+    private Connection conexao;
+
+    public FuncionarioDAO() throws SQLException {
+        this.conexao = CriarConexao.getConexao();
+    }
+
+    public void adicionarFuncionario(Funcionario funcionario) throws SQLException {
+        String sql = "INSERT INTO Funcionarios (nome, cargo, login, senha) VALUES (?, ?, ?, ?)"; // Tabela Funcionarios
+        try (PreparedStatement stmt = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, funcionario.getNome());
+            stmt.setString(2, funcionario.getCargo());
+            stmt.setString(3, funcionario.getLogin());
+            stmt.setString(4, funcionario.getSenha()); // Lembre-se do HASH
+            stmt.executeUpdate();
+
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    funcionario.setIdFuncionario(generatedKeys.getInt(1));
+                } else {
+                    System.err.println("Falha ao obter ID do funcionário após inserção.");
+                }
+            }
+        }
+    }
+
+    public List<Funcionario> listarTodosFuncionarios() throws SQLException {
+        List<Funcionario> funcionarios = new ArrayList<>();
+        String sql = "SELECT id_funcionario, nome, cargo, login FROM Funcionarios ORDER BY nome ASC"; // Tabela Funcionarios
+        try (PreparedStatement stmt = conexao.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                Funcionario f = new Funcionario();
+                f.setIdFuncionario(rs.getInt("id_funcionario"));
+                f.setNome(rs.getString("nome"));
+                f.setCargo(rs.getString("cargo"));
+                f.setLogin(rs.getString("login"));
+                funcionarios.add(f);
+            }
+        }
+        return funcionarios;
+    }
+
+    public Funcionario buscarFuncionarioPorLogin(String login) throws SQLException {
+        String sql = "SELECT * FROM Funcionarios WHERE login = ?"; // Tabela Funcionarios
+        try (PreparedStatement stmt = conexao.prepareStatement(sql)) {
+            stmt.setString(1, login);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Funcionario f = new Funcionario();
+                    f.setIdFuncionario(rs.getInt("id_funcionario"));
+                    f.setNome(rs.getString("nome"));
+                    f.setCargo(rs.getString("cargo"));
+                    f.setLogin(rs.getString("login"));
+                    f.setSenha(rs.getString("senha"));
+                    return f;
+                }
+            }
+        }
+        return null;
+    }
+    
+    public void atualizarFuncionario(Funcionario funcionario) throws SQLException {
+        String sql = "UPDATE Funcionarios SET nome = ?, cargo = ?, login = ? WHERE id_funcionario = ?"; // Tabela Funcionarios
+        try (PreparedStatement stmt = conexao.prepareStatement(sql)) {
+            stmt.setString(1, funcionario.getNome());
+            stmt.setString(2, funcionario.getCargo());
+            stmt.setString(3, funcionario.getLogin());
+            stmt.setInt(4, funcionario.getIdFuncionario());
+            stmt.executeUpdate();
+        }
+    }
+
+    public void removerFuncionario(int idFuncionario) throws SQLException {
+        String sql = "DELETE FROM Funcionarios WHERE id_funcionario = ?"; // Tabela Funcionarios
+        try (PreparedStatement stmt = conexao.prepareStatement(sql)) {
+            stmt.setInt(1, idFuncionario);
+            stmt.executeUpdate();
+        }
+    }
+    
+    public void fecharConexaoDAO() {
+        CriarConexao.fecharConexao(this.conexao);
+    }
+}

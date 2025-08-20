@@ -1,0 +1,340 @@
+
+-- Criação do Banco
+CREATE SCHEMA IF NOT EXISTS `projetofinal_biblioteca`
+DEFAULT CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+USE `projetofinal_biblioteca`;
+
+-- Tabela Livros
+CREATE TABLE IF NOT EXISTS `Livros` (
+  `id_livro` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(255) NOT NULL,
+  `autor` VARCHAR(255) NOT NULL,
+  `editora` VARCHAR(100) NULL,
+  `genero` VARCHAR(100) NULL,
+  `ano_publicacao` INT NULL,
+  `isbn` VARCHAR(20) NOT NULL,
+  `quantidade_disponivel` INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id_livro`),
+  UNIQUE INDEX `isbn_UNIQUE` (`isbn` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- Tabela Usuarios
+CREATE TABLE IF NOT EXISTS `Usuarios` (
+  `id_usuario` INT NOT NULL AUTO_INCREMENT,
+  `nome` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `cpf` VARCHAR(14) NOT NULL,
+  `telefone` VARCHAR(20) NULL,
+  PRIMARY KEY (`id_usuario`),
+  UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE,
+  UNIQUE INDEX `cpf_UNIQUE` (`cpf` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- Tabela Funcionarios
+CREATE TABLE IF NOT EXISTS `Funcionarios` (
+  `id_funcionario` INT NOT NULL AUTO_INCREMENT,
+  `nome` VARCHAR(255) NOT NULL,
+  `cargo` VARCHAR(100) NOT NULL,
+  `login` VARCHAR(50) NOT NULL,
+  `senha` VARCHAR(255) NOT NULL,
+  PRIMARY KEY (`id_funcionario`),
+  UNIQUE INDEX `login_UNIQUE` (`login` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- Tabela Emprestimos
+CREATE TABLE IF NOT EXISTS `Emprestimos` (
+  `id_emprestimo` INT NOT NULL AUTO_INCREMENT,
+  `id_livro` INT NOT NULL,
+  `id_usuario` INT NOT NULL,
+  `id_funcionario_emprestimo` INT NULL,
+  `id_funcionario_devolucao` INT NULL,
+  `data_emprestimo` DATE NOT NULL,
+  `data_devolucao_prevista` DATE NOT NULL,
+  `data_devolucao_efetiva` DATE NULL,
+  `status_emprestimo` ENUM('Pendente', 'Devolvido', 'Atrasado') NOT NULL DEFAULT 'Pendente',
+  PRIMARY KEY (`id_emprestimo`),
+  INDEX `fk_emprestimos_livros_idx` (`id_livro` ASC) VISIBLE,
+  INDEX `fk_emprestimos_usuarios_idx` (`id_usuario` ASC) VISIBLE,
+  INDEX `fk_emprestimos_funcionarios_emprestimo_idx` (`id_funcionario_emprestimo` ASC) VISIBLE,
+  INDEX `fk_emprestimos_funcionarios_devolucao_idx` (`id_funcionario_devolucao` ASC) VISIBLE,
+  CONSTRAINT `fk_emprestimos_livros`
+    FOREIGN KEY (`id_livro`) REFERENCES `Livros` (`id_livro`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_usuarios`
+    FOREIGN KEY (`id_usuario`) REFERENCES `Usuarios` (`id_usuario`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_funcionarios_emprestimo`
+    FOREIGN KEY (`id_funcionario_emprestimo`) REFERENCES `Funcionarios` (`id_funcionario`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_funcionarios_devolucao`
+    FOREIGN KEY (`id_funcionario_devolucao`) REFERENCES `Funcionarios` (`id_funcionario`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE = InnoDB;
+
+-- Inserts Livros
+INSERT IGNORE INTO `Livros` (`titulo`, `autor`, `editora`, `genero`, `ano_publicacao`, `isbn`, `quantidade_disponivel`) VALUES
+('O Senhor dos An├®is: A Sociedade do Anel','J.R.R. Tolkien','HarperCollins','Fantasia',1954,'978-0618260274',4),
+('1984','George Orwell','Companhia das Letras','Distopia',1949,'978-8535914849',2),
+('Dom Quixote','Miguel de Cervantes','Penguin Classics','Cl├íssico',1605,'978-0142437230',2),
+('A Arte da Guerra','Sun Tzu','Clube de Autores','Estrat├®gia',500,'978-8590000000',7),
+('Java: Como Programar','Paul Deitel','Pearson','Programa├º├úo',2022,'978-8543004792',10),
+('Dom Casmurro','Machado de Assis','Editora Ática','Romance',1899,'978-8508040200',5),
+('O Pequeno Príncipe','Antoine de Saint-Exupéry','HarperCollins','Fábula',1943,'978-8595080800',8),
+('Harry Potter e a Pedra Filosofal','J.K. Rowling','Rocco','Fantasia',1997,'978-8532530783',7),
+('A Menina que Roubava Livros','Markus Zusak','Intrínseca','Ficção',2005,'978-8578074540',4),
+('O Hobbit','J.R.R. Tolkien','HarperCollins Brasil','Fantasia',1937,'978-8595084747',6),
+('Orgulho e Preconceito','Jane Austen','Penguin Companhia','Romance',1813,'978-8563560256',3),
+('O Código Da Vinci','Dan Brown','Arqueiro','Suspense',2003,'978-8575421132',5),
+('O Alquimista','Paulo Coelho','HarperCollins','Ficção',1988,'978-0061122415',10),
+('Capitães da Areia','Jorge Amado','Companhia das Letras','Romance',1937,'978-8520924218',2),
+('Ensaio Sobre a Cegueira','José Saramago','Companhia das Letras','Ficção',1995,'978-8535902776',6),
+('Cem Anos de Solidão','Gabriel García Márquez','Record','Realismo Mágico',1967,'978-8532509732',4),
+('O Senhor dos Anéis','J.R.R. Tolkien','HarperCollins Brasil','Fantasia',1954,'978-8595084754',7),
+('Memórias Póstumas de Brás Cubas','Machado de Assis','Editora Ática','Romance',1881,'978-8508122050',5),
+('A Revolução dos Bichos','George Orwell','Companhia das Letras','Fábula',1945,'978-8535914847',3),
+('It: A Coisa','Stephen King','Suma','Terror',1986,'978-8556510509',2),
+('O Iluminado','Stephen King','Suma','Terror',1977,'978-8556510448',3),
+('Misery','Stephen King','Suma','Suspense',1987,'978-8581050734',4),
+('O Nome do Vento','Patrick Rothfuss','Arqueiro','Fantasia',2007,'978-8599296498',5),
+('A Guerra dos Tronos','George R. R. Martin','Suma','Fantasia',1996,'978-8556510417',6),
+('A Clash of Kings','George R. R. Martin','Suma','Fantasia',1998,'978-0553579901',5),
+('A Storm of Swords','George R. R. Martin','Suma','Fantasia',2000,'978-0553573428',4),
+('A Feast for Crows','George R. R. Martin','Suma','Fantasia',2005,'978-0553582024',3),
+('A Dance with Dragons','George R. R. Martin','Suma','Fantasia',2011,'978-0553582017',4),
+('O Lado Bom da Vida','Matthew Quick','Intrínseca','Ficção',2008,'978-8580573296',5),
+('A Culpa é das Estrelas','John Green','Intrínseca','Romance',2012,'978-8580572268',7),
+('Quem é Você, Alasca?','John Green','Intrínseca','Ficção',2005,'978-8598078309',6),
+('Cidades de Papel','John Green','Intrínseca','Ficção',2008,'978-8580573746',5),
+('O Teorema Katherine','John Green','Intrínseca','Ficção',2006,'978-8580573791',4),
+('Inferno','Dan Brown','Arqueiro','Suspense',2013,'978-8580412601',3),
+('Anjos e Demônios','Dan Brown','Arqueiro','Suspense',2000,'978-8575420487',5),
+('Ponto de Impacto','Dan Brown','Arqueiro','Suspense',2001,'978-8575420685',4),
+('Fortaleza Digital','Dan Brown','Arqueiro','Suspense',1998,'978-8575420159',4),
+('O Símbolo Perdido','Dan Brown','Arqueiro','Suspense',2009,'978-8575425086',5),
+('Os Miseráveis','Victor Hugo','Principis','Romance',1862,'978-8594318332',3),
+('Crime e Castigo','Fiódor Dostoiévski','Principis','Romance',1866,'978-8594318486',2),
+('Anna Kariênina','Liev Tolstói','Principis','Romance',1877,'978-8594318462',3),
+('Guerra e Paz','Liev Tolstói','Principis','Romance',1869,'978-8594318493',2),
+('O Processo','Franz Kafka','Companhia das Letras','Ficção',1925,'978-8535913673',4),
+('A Metamorfose','Franz Kafka','Companhia das Letras','Ficção',1915,'978-8535913727',5),
+('O Estrangeiro','Albert Camus','Record','Filosofia',1942,'978-8501078392',4),
+('A Náusea','Jean-Paul Sartre','Record','Filosofia',1938,'978-8501078385',3),
+('O Mundo de Sofia','Jostein Gaarder','Seguinte','Filosofia',1991,'978-8532530781',6),
+('Sapiens','Yuval Noah Harari','Companhia das Letras','História',2011,'978-8535925690',7),
+('Homo Deus','Yuval Noah Harari','Companhia das Letras','História',2015,'978-8535926840',6),
+('21 Lições para o Século 21','Yuval Noah Harari','Companhia das Letras','História',2018,'978-8535931233',5),
+('Breves Respostas para Grandes Questões','Stephen Hawking','Intrínseca','Ciência',2018,'978-8551002930',4),
+('Uma Breve História do Tempo','Stephen Hawking','Intrínseca','Ciência',1988,'978-8535920428',5);
+
+-- Inserts Usuarios
+INSERT IGNORE INTO `Usuarios` (`nome`, `email`, `cpf`, `telefone`) VALUES
+('Ana Silva', 'ana.silva@email.com', '111.111.111-11', '(11) 91111-1111'),
+('Carla Dias', 'carla.dias@email.com', '333.333.333-33', '(31) 93333-3333'),
+('Bruno Costa','bruno.costa@email.com','222.222.222-22','(21) 92222-2222'),
+('João Pereira','joao.pereira@email.com','123.456.789-01','(11)98765-4321'),
+('Maria Silva','maria.silva@email.com','987.654.321-00','(11)98547-6231'),
+('Pedro Costa','pedro.costa@email.com','456.789.123-45','(21)99654-3210'),
+('Ana Lima','ana.lima@email.com','654.987.321-22','(31)98745-1234'),
+('Lucas Rocha','lucas.rocha@email.com','321.654.987-01','(41)99988-7766'),
+('Fernanda Almeida','fernanda.almeida@email.com','789.456.123-77','(51)98877-6655'),
+('Ricardo Melo','ricardo.melo@email.com','159.753.486-20','(61)97766-5544'),
+('Patrícia Souza','patricia.souza@email.com','951.357.852.14','(71)96655-4433'),
+('Rafael Gonçalves','rafael.goncalves@email.com','852.456.123-78','(81)95544-3322'),
+('Juliana Martins','juliana.martins@email.com','357.159.456-82','(91)94433-2211');
+
+-- Inserts Funcionarios
+INSERT IGNORE INTO `Funcionarios` (`nome`, `cargo`, `login`, `senha`) VALUES
+('Carlos Administrador','Bibliotec├írio Chefe','admin','senha_hash_admin'),
+('Fernanda Atendente','Gerente de Atendimento','fernanda','senha_hash_fernanda'),
+('Ana Souza','Bibliotecária','ana.souza','senha_hash_ana'),
+('Carlos Lima','Atendente','carlos.lima','senha_hash_carlos'),
+('Fernanda Alves','Gerente','fernanda.alves','senha_hash_fernandaa'),
+('Marcos Silva','Auxiliar','marcos.silva','senha_hash_marcos'),
+('Juliana Rocha','Atendente','juliana.rocha','senha_hash_juliana'),
+('Patrícia Mendes','Bibliotecária','patricia.mendes','senha_hash_patricia'),
+('Renato Costa','Auxiliar','renato.costa','senha_hash_renato'),
+('Luciana Martins','Gerente','luciana.martins','senha_hash_luciana'),
+('Gabriel Oliveira','Atendente','gabriel.oliveira','senha_hash_gabriel'),
+('Beatriz Santos','Bibliotecária','beatriz.santos','senha_hash_beatriz'); -- Lembre-se: USAR HASH NA APLICAÇÃO
+
+-- Empréstimos
+-- Empréstimo 1: Ana pegou "1984", registrado por Fernanda e não foi devolvido ainda
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8535914849'),      
+  (SELECT id_usuario FROM Usuarios WHERE email = 'ana.silva@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'fernanda'), 
+  '2025-05-01',
+  '2025-05-15',
+  'Pendente'
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-8535914849';
+
+-- Empréstimo 2: Bruno pegou "Dom Quixote", registrado por Carlos, devolvido e registrado por Carlos
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `id_funcionario_devolucao`, `data_emprestimo`, `data_devolucao_prevista`, `data_devolucao_efetiva`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-0142437230'),     
+  (SELECT id_usuario FROM Usuarios WHERE email = 'bruno.costa@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'),    
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'),    
+  '2025-04-20',
+  '2025-05-04',
+  '2025-05-03',
+  'Devolvido'
+);
+
+-- Empréstimo 3: Carla pegou "O Senhor dos Anéis", registrado por Fernanda, e está atrasado
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-0618260274'),     
+  (SELECT id_usuario FROM Usuarios WHERE email = 'carla.dias@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'fernanda'), 
+  '2025-03-10',
+  '2025-03-24',
+  'Atrasado' 
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-0618260274';
+
+-- Emprestimo 4: Bruno pegou "Breves Respostas para Grandes Questões", registrado pelo Admin e foi devolvido
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `id_funcionario_devolucao`, `data_emprestimo`, `data_devolucao_prevista`, `data_devolucao_efetiva`, `status_emprestimo`)
+ VALUES
+(
+  (SELECT id_livro FROM Livros WHERE isbn = '978-0142437230'), 
+  (SELECT id_usuario FROM Usuarios WHERE email = 'bruno.costa@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'),
+  '2025-04-20',
+  '2025-05-04',
+  '2025-05-03',
+  'Devolvido'
+); 
+
+-- Emprestimo 5: Ana pegou o livro "IT: A Coisa", registrado por Luciana e foi devolvido para Luciana mesmo
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `id_funcionario_devolucao`,  `data_emprestimo`, `data_devolucao_prevista`, `data_devolucao_efetiva`, `status_emprestimo`)
+ VALUES
+(
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8556510509'), 
+  (SELECT id_usuario FROM Usuarios WHERE email = 'ana.silva@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'luciana.martins'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'luciana.martins'), 
+  '2025-05-01',
+  '2025-05-15',
+  '2025-05-14',
+  'Devolvido'
+); 
+
+-- Emprestimo 6: Fernanda pegou o livro "Orgulho e Preconteito" registrado por Beatriz e não foi devolvido ainda
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+ VALUES
+(
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8563560256'), 
+  (SELECT id_usuario FROM Usuarios WHERE email = 'fernanda.almeida@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'beatriz.santos'), 
+  '2025-05-10',
+  '2025-05-24',
+  'Pendente'
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-8563560256';
+
+-- Emprestimo 7: João pegou o livro "O Iluminado", registrado por Gabriel e não foi devolvido ainda
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+ VALUES
+(
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8556510448'), 
+  (SELECT id_usuario FROM Usuarios WHERE email = 'joao.pereira@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'gabriel.oliveira'), 
+  '2025-05-18',
+  '2025-06-01',
+  'Pendente'
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-8556510448';
+
+-- Emprestimo 8: Lucas pegou o livro "Guerra e Paz", registrado por Patricia e não foi devolvido ainda
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+ VALUES
+(
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8594318493'), 
+  (SELECT id_usuario FROM Usuarios WHERE email = 'lucas.rocha@email.com'), 
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'patricia.mendes'), 
+  '2025-05-22',
+  '2025-06-05',
+  'Pendente'
+);
+
+-- Views
+CREATE OR REPLACE VIEW `view_livros_disponiveis` AS
+SELECT id_livro, titulo, autor, editora, genero, ano_publicacao, isbn, quantidade_disponivel
+FROM `Livros`
+WHERE quantidade_disponivel > 0;
+
+CREATE OR REPLACE VIEW `view_historico_emprestimos_usuario` AS
+SELECT U.id_usuario, U.nome AS nome_usuario, U.email AS email_usuario,
+       L.id_livro, L.titulo AS titulo_livro, L.isbn AS isbn_livro,
+       E.id_emprestimo, E.data_emprestimo, E.data_devolucao_prevista,
+       E.data_devolucao_efetiva, E.status_emprestimo,
+       FE.nome AS nome_funcionario_emprestimo, FD.nome AS nome_funcionario_devolucao
+FROM Emprestimos E
+JOIN Usuarios U ON E.id_usuario = U.id_usuario
+JOIN Livros L ON E.id_livro = L.id_livro
+LEFT JOIN Funcionarios FE ON E.id_funcionario_emprestimo = FE.id_funcionario
+LEFT JOIN Funcionarios FD ON E.id_funcionario_devolucao = FD.id_funcionario
+ORDER BY U.nome, E.data_emprestimo DESC;
+
+CREATE OR REPLACE VIEW `view_emprestimos_vencidos` AS
+SELECT E.id_emprestimo, L.titulo AS titulo_livro, U.nome AS nome_usuario,
+       U.email AS email_usuario, U.telefone AS telefone_usuario,
+       E.data_emprestimo, E.data_devolucao_prevista,
+       DATEDIFF(CURDATE(), E.data_devolucao_prevista) AS dias_atraso
+FROM Emprestimos E
+JOIN Livros L ON E.id_livro = L.id_livro
+JOIN Usuarios U ON E.id_usuario = U.id_usuario
+WHERE E.data_devolucao_prevista < CURDATE() AND E.status_emprestimo IN ('Pendente', 'Atrasado');
+
+-- Procedures
+DELIMITER $$
+
+CREATE PROCEDURE `RegistrarEmprestimo_`(
+    IN p_id_livro INT,
+    IN p_id_usuario INT,
+    IN p_id_funcionario_emprestimo INT,
+    IN p_data_devolucao_prevista DATE
+)
+BEGIN
+    DECLARE v_quantidade_disponivel INT;
+    SELECT quantidade_disponivel INTO v_quantidade_disponivel
+    FROM Livros
+    WHERE id_livro = p_id_livro FOR UPDATE;
+
+    IF v_quantidade_disponivel > 0 THEN
+        START TRANSACTION;
+        INSERT INTO Emprestimos (id_livro, id_usuario, id_funcionario_emprestimo, data_emprestimo, data_devolucao_prevista, status_emprestimo)
+        VALUES (p_id_livro, p_id_usuario, p_id_funcionario_emprestimo, CURDATE(), p_data_devolucao_prevista, 'Pendente');
+
+        UPDATE Livros
+        SET quantidade_disponivel = quantidade_disponivel - 1
+        WHERE id_livro = p_id_livro;
+        COMMIT;
+    ELSE
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Livro não disponível.';
+    END IF;
+END$$
+
+CREATE PROCEDURE `RegistrarDevolucao_`(
+    IN p_id_emprestimo INT,
+    IN p_id_funcionario_devolucao INT
+)
+BEGIN
+    DECLARE v_id_livro INT;
+    SELECT id_livro INTO v_id_livro
+    FROM Emprestimos
+    WHERE id_emprestimo = p_id_emprestimo;
+
+    UPDATE Emprestimos
+    SET status_emprestimo = 'Devolvido',
+        data_devolucao_efetiva = CURDATE(),
+        id_funcionario_devolucao = p_id_funcionario_devolucao
+    WHERE id_emprestimo = p_id_emprestimo;
+
+    UPDATE Livros
+    SET quantidade_disponivel = quantidade_disponivel + 1
+    WHERE id_livro = v_id_livro;
+END$$
+
+DELIMITER ;

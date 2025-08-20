@@ -1,0 +1,143 @@
+Relatório de Desenvolvimento: Sistema de Gerenciamento de Biblioteca
+
+Introdução e Objetivos do Projeto
+O presente relatório detalha o desenvolvimento de um Sistema de Gerenciamento de Biblioteca, uma aplicação desktop concebida para facilitar as operações rotineiras de uma biblioteca. O projeto foi desenvolvido utilizando a linguagem Java, com interface gráfica construída em Swing e persistência de dados gerenciada por um banco de dados MySQL.
+Objetivos Principais:
+Funcionais:
+Implementar funcionalidades CRUD (Create, Read, Update, Delete) para as entidades: Livros, Usuários (leitores), Funcionários e Empréstimos.
+Permitir o registro de empréstimos e devoluções de livros, utilizando Stored Procedures no MySQL para garantir a atomicidade de operações críticas (como atualização de estoque).
+Fornecer um mecanismo de autenticação para funcionários do sistema.
+Permitir a consulta a um histórico detalhado de empréstimos, utilizando Views SQL.
+Técnicos e de Aprendizado:
+Aplicar os conceitos fundamentais da Programação Orientada a Objetos (POO) em Java, incluindo encapsulamento, herança (implícita no Swing), interfaces e polimorfismo.
+Desenvolver uma arquitetura em camadas para promover a separação de responsabilidades, manutenibilidade e testabilidade do código.
+Estabelecer e gerenciar a comunicação entre a aplicação Java e um banco de dados relacional (MySQL) utilizando JDBC.
+Implementar práticas de segurança básicas, como o hashing de senhas.
+Utilizar estruturas de dados Java (como List e ArrayList) para manipulação de coleções de objetos.
+
+Arquitetura do Sistema
+O sistema foi projetado seguindo uma arquitetura em múltiplas camadas, visando o desacoplamento e a clareza das responsabilidades:
+Camada de Interface do Usuário (UI - biblioteca.ui): Responsável pela apresentação dos dados e interação com o usuário. Construída com Java Swing. Comunica-se exclusivamente com a Camada de Serviço.
+Camada de Serviço (biblioteca.servico): Contém a lógica de negócios da aplicação. Orquestra as operações, realiza validações, e atua como intermediária entre a UI e a Camada de Acesso a Dados.
+Camada de Acesso a Dados (DAO - biblioteca.dao): Encapsula toda a lógica de interação com o banco de dados MySQL. Responsável por executar queries SQL (CRUDs, chamadas a Stored Procedures e Views).
+Camada de Lógica/Entidade (biblioteca.logica): Define os objetos de domínio (POJOs) que representam as entidades do sistema (Livro, Usuário, Empréstimo, etc.).
+Camada de Utilitários (biblioteca.util): Fornece classes auxiliares para funcionalidades transversais, como segurança (hashing de senhas).
+Gerenciamento de Conexão (biblioteca.db): Classe CriarConexao responsável por estabelecer e fornecer conexões JDBC.
+
+Tecnologias Utilizadas
+Linguagem de Programação: Java (JDK 11+ recomendado)
+Interface Gráfica: Java Swing
+Look and Feel: FlatLaf (para uma interface moderna)
+Banco de Dados: MySQL 8.0+
+Driver JDBC: MySQL Connector/J
+IDE (Ambiente de Desenvolvimento): NetBeans (ou outra IDE Java compatível)
+Gerenciamento de Dependências (Opcional): Maven (para FlatLaf e MySQL Connector/J)
+
+Estrutura de Pacotes e Módulos
+A estrutura de pacotes foi planejada para refletir a arquitetura em camadas:
+com.mycompany.biblioteca (ou similar): Contém a classe principal Biblioteca.java que inicia a aplicação.
+biblioteca.db: Classe CriarConexao.java.
+biblioteca.logica: Classes POJO – Livro.java, Usuario.java, Funcionario.java, Emprestimo.java, Historico.java.
+biblioteca.util: Classe UtilitarioSeguranca.java.
+biblioteca.dao: Classes DAO – LivroDAO.java, UsuarioDAO.java, FuncionarioDAO.java, EmprestimoDAO.java.
+biblioteca.servico: Classes de Serviço – LivroServico.java, UsuarioServico.java, FuncionarioServico.java, EmprestimoServico.java.
+biblioteca.ui: Classes da interface gráfica Swing – TelaLogin.java, TelaPrincipalBiblioteca.java, e os painéis (PainelGerenciarLivros.java, etc.).
+biblioteca.exception: Classes de exceção customizadas – AutenticacaoException.java, ValidacaoException.java.
+
+Modelagem do Banco de Dados (projetofinal_biblioteca ou biblioteca_db)
+O banco de dados foi modelado para suportar as entidades e relacionamentos chave:
+Tabelas Principais:
+Livros: Armazena informações sobre os livros (ID, título, autor, ISBN, quantidade, etc.).
+Usuarios: Dados dos leitores (ID, nome, CPF, email, etc.).
+Funcionarios: Dados dos funcionários do sistema (ID, nome, cargo, login, senha hasheada).
+Emprestimos: Registra os empréstimos (ID, IDs do livro, usuário e funcionários, datas, status).
+Relacionamentos: Implementados via chaves estrangeiras (ex: Emprestimos referencia Livros, Usuarios, Funcionarios).
+Views:
+view_livros_disponiveis: Lista livros com quantidade disponível maior que zero.
+view_historico_emprestimos_usuario: Consolida dados de empréstimos com informações de livros, usuários e funcionários para facilitar a consulta ao histórico.
+view_emprestimos_vencidos: Lista empréstimos cujo prazo de devolução expirou e ainda não foram devolvidos.
+Stored Procedures:
+RegistrarEmprestimo: Encapsula a lógica de registrar um novo empréstimo, incluindo a decrementação da quantidade disponível do livro. Retorna uma mensagem de status.
+RegistrarDevolucao: Encapsula a lógica de registrar uma devolução, atualizando o status do empréstimo, data de devolução efetiva e incrementando a quantidade do livro. Retorna uma mensagem de status.
+
+Principais Funcionalidades Implementadas
+Autenticação: Login de funcionários com verificação de credenciais (senha hasheada).
+Gerenciamento de Livros: CRUD completo, busca.
+Gerenciamento de Usuários: CRUD completo, busca.
+Gerenciamento de Funcionários: CRUD completo, busca, alteração de senha.
+Registro de Empréstimos: Seleção de usuário e livro, validação de disponibilidade, cálculo de data de devolução, registro via Stored Procedure.
+Renovação de Empréstimos: Atualização da data de devolução prevista.
+Registro de Devoluções: Atualização de status e data, registro via Stored Procedure.
+Listagem de Empréstimos Ativos: Exibição de empréstimos com status "Pendente" ou "Atrasado".
+Consulta ao Histórico de Empréstimos: Filtragem por múltiplos critérios (data, usuário, livro, status, funcionário) utilizando a view consolidada.
+
+Detalhes da Implementação por Camada
+Camada de Lógica (biblioteca.logica):
+POJOs com atributos privados e métodos getters/setters públicos, aplicando Encapsulamento.
+Uso de java.util.Date para campos de data, com conversão para java.sql.Date/Timestamp ocorrendo na camada DAO.
+Método toString() sobrescrito em cada POJO para representação textual simplificada.
+Camada de Utilitários (biblioteca.util):
+UtilitarioSeguranca: Implementa hashing de senhas com SHA-256 e um salt fixo para armazenamento seguro. Fornece método para verificar senhas durante o login.
+Camada de Acesso a Dados (DAO - biblioteca.dao):
+CriarConexao: Gerencia a obtenção de java.sql.Connection via JDBC e fornece métodos estáticos para fechamento seguro de Connection, PreparedStatement, e ResultSet, utilizados em blocos try-finally.
+DAOs específicos para cada entidade (LivroDAO, UsuarioDAO, FuncionarioDAO, EmprestimoDAO).
+Utilização de PreparedStatement para execução de queries SQL parametrizadas, prevenindo SQL Injection.
+Mapeamento de ResultSet para objetos POJO e List de objetos.
+Uso de Statement.RETURN_GENERATED_KEYS para recuperar IDs auto-incrementados após inserções.
+EmprestimoDAO: Utiliza CallableStatement para executar as Stored Procedures RegistrarEmprestimo e RegistrarDevolucao, e trata os parâmetros de entrada/saída (mensagens). Consulta a view view_historico_emprestimos_usuario para o histórico.
+Propagação de SQLException para a camada de Serviço.
+Camada de Serviço (biblioteca.servico):
+Classes de serviço (FuncionarioServico, LivroServico, UsuarioServico, EmprestimoServico) que encapsulam a lógica de negócios.
+Coordenam as chamadas aos DAOs.
+Implementam validações de dados e regras de negócio (ex: verificar disponibilidade de livro, duplicidade de CPF/ISBN, cálculo de data de devolução).
+Utilizam o UtilitarioSeguranca para autenticação.
+Lançam exceções customizadas (AutenticacaoException, ValidacaoException) para sinalizar erros de negócio específicos para a UI.
+Objetivo de desacoplar a UI dos detalhes de persistência e centralizar a lógica.
+Camada de Interface do Usuário (UI - biblioteca.ui):
+Construída com Java Swing e utilizando o Look and Feel FlatLaf.
+TelaLogin: Coleta credenciais e utiliza FuncionarioServico.autenticar().
+TelaPrincipalBiblioteca: Contêiner principal com JTabbedPane para organizar os painéis de funcionalidades.
+Painéis de Gerenciamento (PainelGerenciarLivros, etc.):
+Apresentam formulários para entrada de dados e tabelas (JTable com DefaultTableModel) para listagem.
+Utilizam ActionListeners e outros listeners (aplicação de Interfaces) para capturar eventos do usuário.
+Delegam todas as operações de negócio para as respectivas classes de Serviço.
+Tratam as exceções (ValidacaoException, SQLException, AutenticacaoException) retornadas pelos serviços, exibindo mensagens ao usuário via JOptionPane.
+Populam tabelas com dados obtidos como List dos serviços.
+Classe Principal (Biblioteca.java):
+Ponto de entrada da aplicação (main method).
+Configura o Look and Feel FlatLaf via UIManager.setLookAndFeel().
+Inicia a TelaLogin na Event Dispatch Thread (EDT) do Swing usando SwingUtilities.invokeLater().
+
+Desafios Enfrentados e Soluções Adotadas
+Dependência do Driver JDBC MySQL: Inicialmente, a ausência do conector MySQL no classpath causou ClassNotFoundException. Solucionado adicionando a dependência mysql-connector-java ao projeto (via Maven ou JAR manual).
+Tratamento de Datas (JDBC vs. POJO): Confusão inicial entre java.util.Date, java.sql.Date e java.sql.Timestamp. Adotada a prática de usar java.util.Date nos POJOs e realizar conversões explícitas (new java.sql.Date(utilDate.getTime())) na camada DAO ao interagir com PreparedStatement e CallableStatement.
+Gerenciamento de Conexões e Recursos JDBC: Para evitar vazamento de recursos, implementado fechamento sistemático de Connection, PreparedStatement e ResultSet em blocos try-finally nos DAOs, auxiliado por métodos utilitários em CriarConexao.
+Segurança de Senhas: Reconhecida a necessidade de não armazenar senhas em texto plano. Implementado hashing com SHA-256 e salt através da classe UtilitarioSeguranca.
+Separação de Responsabilidades: O código inicial da UI tendia a misturar lógica de apresentação com lógica de negócios e acesso a dados. Refatorado com a introdução da Camada de Serviço para melhor organização e desacoplamento.
+Tratamento de Exceções: Decidido por propagar SQLException dos DAOs para os Serviços, e os Serviços lançarem exceções customizadas mais significativas (ValidacaoException, AutenticacaoException) para a UI, permitindo um tratamento de erro mais específico e mensagens amigáveis.
+
+Conceitos de POO e Estruturas de Dados Aplicados
+Classes e Objetos: Fundamental na modelagem de todas as entidades (Livro, Usuario, etc.) e componentes do sistema.
+Encapsulamento: Atributos privados com acesso via getters/setters em todas as classes POJO e em muitos componentes internos.
+Herança: Utilizada implicitamente pelo framework Swing (ex: JFrame, JPanel). (Se houve herança explícita nas classes do desenvolvedor, mencionar aqui).
+Interfaces: Extensivamente usadas no Swing para tratamento de eventos (ActionListener, MouseListener). A interface List foi usada como tipo para coleções de dados.
+Polimorfismo: Demonstração através da sobrescrita do método toString() nas classes POJO. (Se outros exemplos de polimorfismo foram usados, como diferentes implementações de uma interface de serviço/DAO, mencionar).
+List e ArrayList: Usados em toda a camada DAO e Serviço para retornar e manipular coleções de objetos (ex: List<Livro>, List<Emprestimo>).
+Arquitetura em Camadas: Aplicação do princípio de separação de preocupações.
+
+Conclusão e Possíveis Melhorias Futuras
+O desenvolvimento do Sistema de Gerenciamento de Biblioteca atingiu os objetivos propostos, resultando em uma aplicação desktop funcional que aplica os conceitos de Programação Orientada a Objetos e interage eficientemente com um banco de dados MySQL. A arquitetura em camadas adotada provou ser benéfica para a organização e manutenibilidade do código.
+Possíveis Melhorias Futuras:
+Segurança de Senhas Aprimorada: Migrar do salt fixo para um salt aleatório gerado por usuário e armazenado junto com o hash, e considerar algoritmos mais robustos como BCrypt ou Argon2.
+Controle de Permissões Mais Granular: Implementar um sistema de perfis de funcionário (ex: Bibliotecário, Administrador) com diferentes níveis de acesso às funcionalidades.
+Validações de Negócio Mais Robustas:
+Impedir remoção de livros/usuários com empréstimos ativos.
+Implementar limites de empréstimos por usuário e regras de renovação mais complexas (ex: limite de renovações, verificação de reservas).
+Validação de algoritmo de CPF.
+Funcionalidade de Reserva de Livros.
+Geração de Relatórios: Exportação de dados, estatísticas de empréstimos, etc.
+Otimização de Consultas: Para listagens com grande volume de dados, revisar DAOs para garantir que as queries sejam otimizadas (ex: evitar N+1 selects ao buscar dados relacionados para tabelas).
+Testes Automatizados: Implementação de testes unitários para a camada de Serviço e DAO, e testes de integração.
+Interface Gráfica Mais Rica: Utilização de componentes mais avançados ou bibliotecas de UI adicionais, se necessário.
+Internacionalização (i18n): Suporte a múltiplos idiomas.
+Este projeto serviu como uma valiosa experiência prática, consolidando o aprendizado teórico e expondo os desafios e soluções inerentes ao desenvolvimento de software.

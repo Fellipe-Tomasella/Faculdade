@@ -1,0 +1,18 @@
+body {
+    background-color: #808080;
+    font-family: Arial, sans-serif;
+    margin: 15;
+    padding: 50;
+}
+
+h1 {
+    color:rgb(0, 255, 255);
+    text-align: center;
+}
+P{
+    color: rgb(255, 166, 166);
+}
+
+h1, p {
+    font-style: oblique;
+}

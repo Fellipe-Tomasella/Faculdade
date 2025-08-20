@@ -1,0 +1,292 @@
+
+package biblioteca.dao;
+
+import biblioteca.db.CriarConexao;
+import biblioteca.logica.Funcionario;
+import biblioteca.util.UtilitarioSeguranca; // Import para hashing de senha
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * DAO para a entidade Funcionario.
+ * Gerencia as operações de persistência (CRUD) e autenticação para funcionários.
+ */
+public class FuncionarioDAO {
+
+    /**
+     * Adiciona um novo funcionário ao banco de dados.
+     * A senha do funcionário é hasheada antes de ser armazenada.
+     *
+     * @param funcionario O objeto Funcionario a ser persistido. O ID será atualizado no objeto.
+     * @throws SQLException Se ocorrer um erro durante a operação no banco.
+     */
+    public void adicionarFuncionario(Funcionario funcionario) throws SQLException {
+        String sql = "INSERT INTO Funcionarios (nome, cargo, login, senha) VALUES (?, ?, ?, ?)";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet generatedKeys = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+
+            stmt.setString(1, funcionario.getNome());
+            stmt.setString(2, funcionario.getCargo());
+            stmt.setString(3, funcionario.getLogin());
+            // A senha recebida no objeto Funcionario é a original (texto plano).
+            // O hash é gerado aqui antes de enviar para o banco.
+            stmt.setString(4, UtilitarioSeguranca.hashSenha(funcionario.getSenha()));
+
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    funcionario.setIdFuncionario(generatedKeys.getInt(1));
+                } else {
+                    System.err.println("Falha ao obter o ID gerado para o novo funcionário.");
+                }
+            } else {
+                throw new SQLException("A inserção do funcionário falhou, nenhuma linha afetada.");
+            }
+        } finally {
+            CriarConexao.fechar(generatedKeys);
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+
+    /**
+     * Lista todos os funcionários cadastrados, ordenados por nome.
+     * A senha (hash) não é retornada nesta listagem por questões de segurança e usabilidade.
+     *
+     * @return Uma lista de objetos Funcionario (sem o campo senha preenchido).
+     * @throws SQLException Se ocorrer um erro durante a operação no banco.
+     */
+    public List<Funcionario> listarTodosFuncionarios() throws SQLException {
+        List<Funcionario> funcionarios = new ArrayList<>();
+        // Seleciona apenas os campos necessários, omitindo a senha.
+        String sql = "SELECT id_funcionario, nome, cargo, login FROM Funcionarios ORDER BY nome ASC";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Funcionario f = new Funcionario();
+                f.setIdFuncionario(rs.getInt("id_funcionario"));
+                f.setNome(rs.getString("nome"));
+                f.setCargo(rs.getString("cargo"));
+                f.setLogin(rs.getString("login"));
+                // f.setSenha(null); // Explícito que a senha não é carregada aqui.
+                funcionarios.add(f);
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return funcionarios;
+    }
+
+    /**
+     * Busca um funcionário pelo seu login.
+     * Este método é usado principalmente para o processo de autenticação.
+     * Retorna o funcionário com a senha (hash) armazenada no banco.
+     *
+     * @param login O login do funcionário a ser buscado.
+     * @return O objeto Funcionario encontrado (com a senha hasheada), ou null se não existir.
+     * @throws SQLException Se ocorrer um erro durante a operação no banco.
+     */
+    public Funcionario buscarFuncionarioPorLogin(String login) throws SQLException {
+        String sql = "SELECT id_funcionario, nome, cargo, login, senha FROM Funcionarios WHERE login = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        Funcionario funcionario = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            stmt.setString(1, login);
+            rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                funcionario = new Funcionario();
+                funcionario.setIdFuncionario(rs.getInt("id_funcionario"));
+                funcionario.setNome(rs.getString("nome"));
+                funcionario.setCargo(rs.getString("cargo"));
+                funcionario.setLogin(rs.getString("login"));
+                funcionario.setSenha(rs.getString("senha")); // Carrega o hash da senha do banco
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return funcionario;
+    }
+
+    /**
+     * Busca um funcionário pelo seu ID.
+     * Opcionalmente, pode-se escolher não carregar a senha (hash).
+     * Por padrão, para uso em formulários de edição (onde a senha não deve ser exibida),
+     * este método não carrega a senha.
+     *
+     * @param id O ID do funcionário.
+     * @return O objeto Funcionario encontrado (sem a senha), ou null.
+     * @throws SQLException Se ocorrer um erro no banco.
+     */
+    public Funcionario buscarFuncionarioPorId(int id) throws SQLException {
+        String sql = "SELECT id_funcionario, nome, cargo, login FROM Funcionarios WHERE id_funcionario = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        Funcionario funcionario = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            stmt.setInt(1, id);
+            rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                funcionario = new Funcionario();
+                funcionario.setIdFuncionario(rs.getInt("id_funcionario"));
+                funcionario.setNome(rs.getString("nome"));
+                funcionario.setCargo(rs.getString("cargo"));
+                funcionario.setLogin(rs.getString("login"));
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return funcionario;
+    }
+
+    /**
+     * Atualiza os dados de um funcionário (exceto a senha).
+     * Para alterar a senha, deve-se usar o método {@link #atualizarSenhaFuncionario(int, String)}.
+     *
+     * @param funcionario O objeto Funcionario com os dados (nome, cargo, login) a serem atualizados.
+     * @throws SQLException Se ocorrer um erro ou se o funcionário não for encontrado.
+     */
+    public void atualizarFuncionario(Funcionario funcionario) throws SQLException {
+        String sql = "UPDATE Funcionarios SET nome = ?, cargo = ?, login = ? WHERE id_funcionario = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+
+            stmt.setString(1, funcionario.getNome());
+            stmt.setString(2, funcionario.getCargo());
+            stmt.setString(3, funcionario.getLogin());
+            stmt.setInt(4, funcionario.getIdFuncionario());
+
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Nenhum funcionário encontrado com ID " + funcionario.getIdFuncionario() + " para atualizar.");
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+
+    /**
+     * Atualiza a senha (hasheada) de um funcionário específico.
+     *
+     * @param idFuncionario O ID do funcionário cuja senha será alterada.
+     * @param novaSenhaOriginal A nova senha em texto plano (será hasheada aqui).
+     * @throws SQLException Se ocorrer um erro ou se o funcionário não for encontrado.
+     */
+    public void atualizarSenhaFuncionario(int idFuncionario, String novaSenhaOriginal) throws SQLException {
+        String sql = "UPDATE Funcionarios SET senha = ? WHERE id_funcionario = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+
+            stmt.setString(1, UtilitarioSeguranca.hashSenha(novaSenhaOriginal)); // Hasheia a nova senha
+            stmt.setInt(2, idFuncionario);
+
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Nenhum funcionário encontrado com ID " + idFuncionario + " para atualizar a senha.");
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+
+    /**
+     * Remove um funcionário do banco de dados pelo seu ID.
+     *
+     * @param idFuncionario O ID do funcionário a ser removido.
+     * @throws SQLException Se ocorrer um erro (ex: restrições de FK) ou se o funcionário não for encontrado.
+     */
+    public void removerFuncionario(int idFuncionario) throws SQLException {
+        String sql = "DELETE FROM Funcionarios WHERE id_funcionario = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            stmt.setInt(1, idFuncionario);
+
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Nenhum funcionário encontrado com ID " + idFuncionario + " para remover.");
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+
+     /**
+     * Busca funcionários cujo nome ou login contenham o termo de busca.
+     * A busca é case-insensitive. A senha não é retornada.
+     *
+     * @param termo O termo a ser buscado.
+     * @return Uma lista de objetos Funcionario que correspondem ao critério.
+     * @throws SQLException Se ocorrer um erro durante a operação no banco.
+     */
+    public List<Funcionario> buscarFuncionariosPorTermo(String termo) throws SQLException {
+        List<Funcionario> funcionarios = new ArrayList<>();
+        String sql = "SELECT id_funcionario, nome, cargo, login FROM Funcionarios " +
+                     "WHERE LOWER(nome) LIKE LOWER(?) OR LOWER(login) LIKE LOWER(?) " +
+                     "ORDER BY nome ASC";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            String termoLike = "%" + termo.toLowerCase() + "%";
+            stmt.setString(1, termoLike); // Para nome
+            stmt.setString(2, termoLike); // Para login
+
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Funcionario f = new Funcionario();
+                f.setIdFuncionario(rs.getInt("id_funcionario"));
+                f.setNome(rs.getString("nome"));
+                f.setCargo(rs.getString("cargo"));
+                f.setLogin(rs.getString("login"));
+                funcionarios.add(f);
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return funcionarios;
+    }
+}

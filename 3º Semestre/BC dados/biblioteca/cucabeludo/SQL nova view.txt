@@ -1,0 +1,32 @@
+USE `projetofinal_biblioteca`;
+
+CREATE OR REPLACE VIEW `view_historico_emprestimos_detalhado` AS -- Nome da view um pouco mais descritivo
+SELECT
+    E.id_emprestimo,
+    L.titulo AS titulo_livro,
+    L.isbn AS isbn_livro,
+    U.nome AS nome_usuario,
+    U.email AS email_usuario,
+    E.data_emprestimo,
+    E.data_devolucao_prevista,
+    E.data_devolucao_efetiva,
+    E.status_emprestimo,
+    FE.nome AS nome_funcionario_emprestimo,
+    FD.nome AS nome_funcionario_devolucao,
+    -- Adicionando IDs para filtros mais precisos, se necessário no futuro
+    L.id_livro,
+    U.id_usuario,
+    FE.id_funcionario AS id_func_emprestimo,
+    FD.id_funcionario AS id_func_devolucao
+FROM
+    `Emprestimos` E
+JOIN
+    `Livros` L ON E.id_livro = L.id_livro
+JOIN
+    `Usuarios` U ON E.id_usuario = U.id_usuario
+LEFT JOIN -- Usar LEFT JOIN para o caso de funcionários terem sido removidos
+    `Funcionarios` FE ON E.id_funcionario_emprestimo = FE.id_funcionario
+LEFT JOIN
+    `Funcionarios` FD ON E.id_funcionario_devolucao = FD.id_funcionario
+ORDER BY
+    E.id_emprestimo DESC; -- Ordena pelos empréstimos mais recentes primeiro

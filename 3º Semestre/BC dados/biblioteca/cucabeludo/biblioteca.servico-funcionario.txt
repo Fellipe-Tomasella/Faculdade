@@ -1,0 +1,200 @@
+
+package biblioteca.servico;
+
+import biblioteca.dao.FuncionarioDAO;
+import biblioteca.logica.Funcionario;
+import biblioteca.util.UtilitarioSeguranca;
+import biblioteca.exception.AutenticacaoException;
+import biblioteca.exception.ValidacaoException;
+
+import java.sql.SQLException;
+import java.util.List;
+
+/**
+ * Camada de serviço para a entidade Funcionario.
+ * Encapsula a lógica de negócios e coordena as interações com o FuncionarioDAO.
+ */
+public class FuncionarioServico {
+
+    private FuncionarioDAO funcionarioDAO;
+
+    /**
+     * Construtor. Inicializa o DAO necessário.
+     * Em um cenário com injeção de dependência, o DAO seria injetado.
+     */
+    public FuncionarioServico() {
+        try {
+            // A instância do DAO é criada aqui.
+            // Em aplicações maiores, um Service Locator ou Injeção de Dependência seria usado.
+            this.funcionarioDAO = new FuncionarioDAO();
+        } catch (/*SQLException | OutroErroDeInicializacaoDoDAO e -- se o construtor do DAO pudesse lançar checked */
+                 RuntimeException e) { // Captura RuntimeException do CriarConexao se o driver não carregar
+            // Falha ao inicializar o DAO é um problema crítico para o serviço.
+            throw new RuntimeException("Erro crítico ao inicializar o serviço de funcionário: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Autentica um funcionário.
+     *
+     * @param login O login fornecido.
+     * @param senhaDigitada A senha em texto plano fornecida.
+     * @return O objeto Funcionario autenticado.
+     * @throws AutenticacaoException Se o login ou senha forem inválidos.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public Funcionario autenticar(String login, String senhaDigitada) throws AutenticacaoException, SQLException {
+        if (login == null || login.trim().isEmpty() || senhaDigitada == null || senhaDigitada.isEmpty()) {
+            throw new AutenticacaoException("Login e senha são obrigatórios.");
+        }
+
+        Funcionario funcionario = funcionarioDAO.buscarFuncionarioPorLogin(login);
+
+        if (funcionario == null) {
+            throw new AutenticacaoException("Login não encontrado.");
+        }
+
+        if (!UtilitarioSeguranca.verificarSenha(senhaDigitada, funcionario.getSenha())) {
+            throw new AutenticacaoException("Senha inválida.");
+        }
+        // O funcionário retornado contém o hash da senha. A UI deve ter cuidado.
+        return funcionario;
+    }
+
+    /**
+     * Adiciona um novo funcionário.
+     *
+     * @param nome Nome do funcionário.
+     * @param cargo Cargo do funcionário.
+     * @param login Login para acesso.
+     * @param senhaOriginal Senha em texto plano.
+     * @return O Funcionario criado, com ID preenchido.
+     * @throws ValidacaoException Se os dados forem inválidos ou o login já existir.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public Funcionario adicionar(String nome, String cargo, String login, String senhaOriginal) throws ValidacaoException, SQLException {
+        // Validações de negócio
+        if (nome == null || nome.trim().isEmpty()) throw new ValidacaoException("O nome do funcionário é obrigatório.");
+        if (login == null || login.trim().isEmpty()) throw new ValidacaoException("O login do funcionário é obrigatório.");
+        if (senhaOriginal == null || senhaOriginal.isEmpty()) throw new ValidacaoException("A senha do funcionário é obrigatória.");
+        // Adicionar mais validações se necessário (ex: tamanho mínimo de senha)
+
+        // Verifica se o login já está em uso
+        if (funcionarioDAO.buscarFuncionarioPorLogin(login) != null) {
+            throw new ValidacaoException("O login '" + login + "' já está cadastrado.");
+        }
+
+        Funcionario novoFuncionario = new Funcionario(nome, cargo, login, senhaOriginal);
+        // O DAO será responsável por hashear a senha antes de persistir.
+        funcionarioDAO.adicionarFuncionario(novoFuncionario);
+        return novoFuncionario; // Retorna com o ID preenchido pelo DAO
+    }
+
+    /**
+     * Atualiza os dados de um funcionário (nome, cargo, login).
+     * A senha não é alterada por este método.
+     *
+     * @param idFuncionario ID do funcionário.
+     * @param nome Novo nome.
+     * @param cargo Novo cargo.
+     * @param login Novo login.
+     * @throws ValidacaoException Se os dados forem inválidos, funcionário não encontrado ou login duplicado.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public void atualizar(int idFuncionario, String nome, String cargo, String login) throws ValidacaoException, SQLException {
+        if (nome == null || nome.trim().isEmpty()) throw new ValidacaoException("O nome do funcionário é obrigatório.");
+        if (login == null || login.trim().isEmpty()) throw new ValidacaoException("O login do funcionário é obrigatório.");
+
+        Funcionario funcionarioParaAtualizar = funcionarioDAO.buscarFuncionarioPorId(idFuncionario);
+        if (funcionarioParaAtualizar == null) {
+            throw new ValidacaoException("Funcionário com ID " + idFuncionario + " não encontrado.");
+        }
+
+        // Verifica se o novo login já existe para OUTRO funcionário
+        Funcionario funcionarioComLoginExistente = funcionarioDAO.buscarFuncionarioPorLogin(login);
+        if (funcionarioComLoginExistente != null && funcionarioComLoginExistente.getIdFuncionario() != idFuncionario) {
+            throw new ValidacaoException("O login '" + login + "' já está em uso por outro funcionário.");
+        }
+
+        funcionarioParaAtualizar.setNome(nome);
+        funcionarioParaAtualizar.setCargo(cargo);
+        funcionarioParaAtualizar.setLogin(login);
+        funcionarioDAO.atualizarFuncionario(funcionarioParaAtualizar);
+    }
+
+    /**
+     * Altera a senha de um funcionário.
+     *
+     * @param idFuncionario ID do funcionário.
+     * @param novaSenhaOriginal Nova senha em texto plano.
+     * @throws ValidacaoException Se a senha for inválida ou funcionário não encontrado.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public void alterarSenha(int idFuncionario, String novaSenhaOriginal) throws ValidacaoException, SQLException {
+        if (novaSenhaOriginal == null || novaSenhaOriginal.trim().isEmpty()) {
+            throw new ValidacaoException("A nova senha não pode ser vazia.");
+        }
+        // Adicionar validações de complexidade de senha aqui, se desejado.
+
+        if (funcionarioDAO.buscarFuncionarioPorId(idFuncionario) == null) {
+             throw new ValidacaoException("Funcionário com ID " + idFuncionario + " não encontrado para alterar senha.");
+        }
+        funcionarioDAO.atualizarSenhaFuncionario(idFuncionario, novaSenhaOriginal);
+    }
+
+    /**
+     * Remove um funcionário.
+     *
+     * @param idFuncionario ID do funcionário a ser removido.
+     * @throws ValidacaoException Se o funcionário não for encontrado.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco (ex: restrições de FK).
+     */
+    public void remover(int idFuncionario) throws ValidacaoException, SQLException {
+        // Validações de negócio antes de remover (ex: não pode remover o único admin)
+        // podem ser adicionadas aqui.
+        if (funcionarioDAO.buscarFuncionarioPorId(idFuncionario) == null) {
+             throw new ValidacaoException("Funcionário com ID " + idFuncionario + " não encontrado para remoção.");
+        }
+        // Considerar verificar se o funcionário logado não está tentando se auto-remover,
+        // ou se é um admin tentando remover outro admin.
+        funcionarioDAO.removerFuncionario(idFuncionario);
+    }
+
+    /**
+     * Lista todos os funcionários.
+     * As senhas (hashes) não são incluídas nos objetos Funcionario retornados.
+     *
+     * @return Lista de todos os funcionários.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public List<Funcionario> listarTodos() throws SQLException {
+        return funcionarioDAO.listarTodosFuncionarios();
+    }
+
+    /**
+     * Busca funcionários por um termo (nome ou login).
+     * As senhas (hashes) não são incluídas.
+     *
+     * @param termo Termo de busca.
+     * @return Lista de funcionários que correspondem ao termo.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco de dados.
+     */
+    public List<Funcionario> buscarPorTermo(String termo) throws SQLException {
+        if (termo == null || termo.trim().isEmpty()) {
+            return listarTodos(); // Se o termo for vazio, retorna todos
+        }
+        return funcionarioDAO.buscarFuncionariosPorTermo(termo);
+    }
+    
+    /**
+     * Busca um funcionário pelo ID.
+     * A senha (hash) não é incluída.
+     *
+     * @param id O ID do funcionário.
+     * @return O funcionário encontrado, ou null.
+     * @throws SQLException Se ocorrer erro no banco.
+     */
+    public Funcionario buscarPorId(int id) throws SQLException {
+        return funcionarioDAO.buscarFuncionarioPorId(id);
+    }
+}

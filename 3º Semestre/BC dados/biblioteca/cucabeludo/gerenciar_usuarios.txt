@@ -1,0 +1,287 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+import biblioteca.dao.UsuarioDAO;
+import biblioteca.logica.Usuario;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class PainelGerenciarUsuarios extends JPanel {
+
+    private JTextField txtIdUsuario, txtNomeUsuario, txtEmailUsuario, txtCpfUsuario, txtTelefoneUsuario;
+    private JButton btnNovoUsuario, btnSalvarUsuario, btnRemoverUsuario, btnLimparFormUsuario;
+    private JTable tabelaUsuarios;
+    private DefaultTableModel tableModelUsuarios;
+    private JTextField campoBuscaUsuario;
+    private JButton btnBuscarUsuario;
+
+    private UsuarioDAO usuarioDAO;
+
+    public PainelGerenciarUsuarios() {
+        try {
+            usuarioDAO = new UsuarioDAO();
+        } catch (SQLException e) {
+            this.usuarioDAO = null;
+            JOptionPane.showMessageDialog(this, "Erro ao conectar ao banco para Usuários: " + e.getMessage(), "Erro DAO", JOptionPane.ERROR_MESSAGE);
+        }
+
+        setLayout(new BorderLayout(10, 10));
+        setBorder(new EmptyBorder(15, 15, 15, 15));
+        // setBackground(Color.WHITE); // Opcional, para consistência
+
+        initComponentsUsuarios();
+        layoutComponentsUsuarios();
+        addEventHandlersUsuarios();
+
+        if (usuarioDAO != null) {
+            carregarUsuariosNaTabela();
+        }
+    }
+
+    private void initComponentsUsuarios() {
+        txtIdUsuario = new JTextField(5);
+        txtIdUsuario.setEditable(false);
+        txtNomeUsuario = new JTextField(25);
+        txtEmailUsuario = new JTextField(25);
+        txtCpfUsuario = new JTextField(15);
+        txtTelefoneUsuario = new JTextField(15);
+
+        btnNovoUsuario = new JButton("Novo");
+        // Adicionar ícones se desejar
+        btnSalvarUsuario = new JButton("Salvar");
+        btnLimparFormUsuario = new JButton("Limpar");
+
+        campoBuscaUsuario = new JTextField(20);
+        btnBuscarUsuario = new JButton("Buscar");
+
+        String[] colunas = {"ID", "Nome", "Email", "CPF", "Telefone"};
+        tableModelUsuarios = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c){ return false; }
+        };
+        tabelaUsuarios = new JTable(tableModelUsuarios);
+        tabelaUsuarios.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        btnRemoverUsuario = new JButton("Excluir Selecionado");
+        btnRemoverUsuario.setEnabled(false);
+    }
+
+    private void layoutComponentsUsuarios() {
+        // Painel do Formulário
+        JPanel painelForm = new JPanel(new GridBagLayout());
+        painelForm.setBorder(BorderFactory.createTitledBorder("Detalhes do Usuário"));
+        // painelForm.setBackground(Color.WHITE);
+        GridBagConstraints gbcForm = new GridBagConstraints();
+        gbcForm.insets = new Insets(5,5,5,5);
+        gbcForm.anchor = GridBagConstraints.WEST;
+        gbcForm.fill = GridBagConstraints.HORIZONTAL;
+
+        gbcForm.gridx = 0; gbcForm.gridy = 0; painelForm.add(new JLabel("ID:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 0; painelForm.add(txtIdUsuario, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 1; painelForm.add(new JLabel("Nome:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 1; painelForm.add(txtNomeUsuario, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = 2; painelForm.add(new JLabel("Email:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 2; painelForm.add(txtEmailUsuario, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 3; painelForm.add(new JLabel("CPF:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 3; painelForm.add(txtCpfUsuario, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = 4; painelForm.add(new JLabel("Telefone:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 4; painelForm.add(txtTelefoneUsuario, gbcForm);
+        
+        JPanel painelBotoesForm = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        // painelBotoesForm.setBackground(Color.WHITE);
+        painelBotoesForm.add(btnNovoUsuario);
+        painelBotoesForm.add(btnSalvarUsuario);
+        painelBotoesForm.add(btnLimparFormUsuario);
+        gbcForm.gridx = 0; gbcForm.gridy = 5; gbcForm.gridwidth = 2; gbcForm.fill = GridBagConstraints.NONE; gbcForm.anchor = GridBagConstraints.CENTER;
+        painelForm.add(painelBotoesForm, gbcForm);
+
+        // Painel da Lista
+        JPanel painelLista = new JPanel(new BorderLayout(5,5));
+        painelLista.setBorder(BorderFactory.createTitledBorder("Lista de Usuários"));
+        // painelLista.setBackground(Color.WHITE);
+
+        JPanel painelBusca = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        // painelBusca.setBackground(Color.WHITE);
+        painelBusca.add(new JLabel("Buscar (Nome/CPF/Email):"));
+        painelBusca.add(campoBuscaUsuario);
+        painelBusca.add(btnBuscarUsuario);
+        painelLista.add(painelBusca, BorderLayout.NORTH);
+
+        painelLista.add(new JScrollPane(tabelaUsuarios), BorderLayout.CENTER);
+
+        JPanel painelAcoesTabela = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        // painelAcoesTabela.setBackground(Color.WHITE);
+        painelAcoesTabela.add(btnRemoverUsuario);
+        painelLista.add(painelAcoesTabela, BorderLayout.SOUTH);
+
+        add(painelForm, BorderLayout.NORTH);
+        add(painelLista, BorderLayout.CENTER);
+    }
+
+    private void addEventHandlersUsuarios() {
+        if (usuarioDAO == null) return;
+
+        btnNovoUsuario.addActionListener(e -> limparFormularioUsuarios());
+        btnLimparFormUsuario.addActionListener(e -> limparFormularioUsuarios());
+        btnSalvarUsuario.addActionListener(e -> salvarUsuario());
+        btnRemoverUsuario.addActionListener(e -> removerUsuarioSelecionado());
+        btnBuscarUsuario.addActionListener(e -> buscarUsuarios());
+
+        tabelaUsuarios.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int linhaSelecionada = tabelaUsuarios.getSelectedRow();
+                if (linhaSelecionada != -1) {
+                    carregarUsuarioDoFormularioPelaTabela(linhaSelecionada);
+                    btnRemoverUsuario.setEnabled(true);
+                }
+            }
+        });
+    }
+
+    private void limparFormularioUsuarios() {
+        txtIdUsuario.setText("");
+        txtNomeUsuario.setText("");
+        txtEmailUsuario.setText("");
+        txtCpfUsuario.setText("");
+        txtTelefoneUsuario.setText("");
+        tabelaUsuarios.clearSelection();
+        btnRemoverUsuario.setEnabled(false);
+        txtNomeUsuario.requestFocus();
+    }
+
+    private void carregarUsuariosNaTabela() {
+        tableModelUsuarios.setRowCount(0);
+        if (usuarioDAO == null) return;
+        try {
+            List<Usuario> usuarios = usuarioDAO.listarTodosUsuarios();
+            for (Usuario u : usuarios) {
+                tableModelUsuarios.addRow(new Object[]{
+                        u.getIdUsuario(), u.getNome(), u.getEmail(), u.getCpf(), u.getTelefone()
+                });
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar usuários: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void buscarUsuarios() {
+        String termoBusca = campoBuscaUsuario.getText().trim();
+        tableModelUsuarios.setRowCount(0);
+        if (usuarioDAO == null) return;
+        try {
+            List<Usuario> usuarios = new ArrayList<>(); // Inicializa a lista
+            if (termoBusca.isEmpty()) {
+                usuarios = usuarioDAO.listarTodosUsuarios();
+            } else {
+                // Implementar busca específica no DAO ou filtrar a lista completa
+                // Por simplicidade, vamos filtrar a lista completa (menos eficiente para bancos grandes)
+                List<Usuario> todos = usuarioDAO.listarTodosUsuarios();
+                for(Usuario u : todos){
+                    if(u.getNome().toLowerCase().contains(termoBusca.toLowerCase()) ||
+                       u.getCpf().contains(termoBusca) ||
+                       u.getEmail().toLowerCase().contains(termoBusca.toLowerCase())){
+                        usuarios.add(u);
+                    }
+                }
+            }
+            for (Usuario u : usuarios) {
+                tableModelUsuarios.addRow(new Object[]{
+                        u.getIdUsuario(), u.getNome(), u.getEmail(), u.getCpf(), u.getTelefone()
+                });
+            }
+            if(usuarios.isEmpty() && !termoBusca.isEmpty()){
+                JOptionPane.showMessageDialog(this, "Nenhum usuário encontrado para: '" + termoBusca + "'", "Busca", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar usuários: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void carregarUsuarioDoFormularioPelaTabela(int linha) {
+        txtIdUsuario.setText(tableModelUsuarios.getValueAt(linha, 0).toString());
+        txtNomeUsuario.setText(tableModelUsuarios.getValueAt(linha, 1).toString());
+        txtEmailUsuario.setText(tableModelUsuarios.getValueAt(linha, 2).toString());
+        txtCpfUsuario.setText(tableModelUsuarios.getValueAt(linha, 3).toString());
+        txtTelefoneUsuario.setText(tableModelUsuarios.getValueAt(linha, 4) != null ? tableModelUsuarios.getValueAt(linha, 4).toString() : "");
+    }
+
+    private void salvarUsuario() {
+        if (txtNomeUsuario.getText().trim().isEmpty() || txtEmailUsuario.getText().trim().isEmpty() || txtCpfUsuario.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Nome, Email e CPF são obrigatórios.", "Validação", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (usuarioDAO == null) return;
+
+        try {
+            String nome = txtNomeUsuario.getText().trim();
+            String email = txtEmailUsuario.getText().trim();
+            String cpf = txtCpfUsuario.getText().trim();
+            String telefone = txtTelefoneUsuario.getText().trim();
+
+            Usuario usuario = new Usuario(nome, email, cpf, telefone);
+
+            if (txtIdUsuario.getText().trim().isEmpty()) { // Adicionar novo
+                usuarioDAO.adicionarUsuario(usuario);
+                JOptionPane.showMessageDialog(this, "Usuário adicionado com sucesso! ID: " + usuario.getIdUsuario(), "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            } else { // Atualizar existente
+                usuario.setIdUsuario(Integer.parseInt(txtIdUsuario.getText().trim()));
+                usuarioDAO.atualizarUsuario(usuario);
+                JOptionPane.showMessageDialog(this, "Usuário atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            }
+            carregarUsuariosNaTabela();
+            limparFormularioUsuarios();
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Erro de formato nos dados do usuário.", "Erro de Formato", JOptionPane.ERROR_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao salvar usuário: " + ex.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+    private void removerUsuarioSelecionado() {
+        if (txtIdUsuario.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Nenhum usuário selecionado para remover.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if (usuarioDAO == null) return;
+
+        int idUsuario = Integer.parseInt(txtIdUsuario.getText().trim());
+        int confirmacao = JOptionPane.showConfirmDialog(this,
+                "Tem certeza que deseja remover o usuário '" + txtNomeUsuario.getText() + "' (ID: " + idUsuario + ")?",
+                "Confirmar Remoção", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirmacao == JOptionPane.YES_OPTION) {
+            try {
+                usuarioDAO.removerUsuario(idUsuario);
+                JOptionPane.showMessageDialog(this, "Usuário removido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                carregarUsuariosNaTabela();
+                limparFormularioUsuarios();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao remover usuário: " + ex.getMessage() +
+                        "\nVerifique se o usuário não possui empréstimos ativos.", "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
+    }
+    
+    public void fecharRecursosDAO() {
+        if (usuarioDAO != null) {
+            usuarioDAO.fecharConexaoDAO();
+        }
+    }
+}

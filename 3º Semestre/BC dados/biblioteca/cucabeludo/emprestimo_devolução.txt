@@ -1,0 +1,327 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+import biblioteca.dao.EmprestimoDAO;
+import biblioteca.dao.LivroDAO; // Para buscar info do livro
+import biblioteca.dao.UsuarioDAO; // Para buscar info do usuário
+import biblioteca.logica.Emprestimo;
+import biblioteca.logica.Funcionario;
+import biblioteca.logica.Livro;
+import biblioteca.logica.Usuario;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+
+public class PainelEmprestimosDevolucoes extends JPanel {
+
+    // Componentes para Novo Empréstimo
+    private JTextField txtIdUsuarioEmp, txtIdLivroEmp, txtDiasEmprestimo;
+    private JLabel lblNomeUsuarioEmp, lblTituloLivroEmp, lblDisponibilidadeLivroEmp;
+    private JButton btnBuscarUsuarioEmp, btnBuscarLivroEmp, btnRegistrarEmprestimo;
+
+    // Componentes para Devoluções / Empréstimos Ativos
+    private JTextField campoBuscaEmprestimos;
+    private JButton btnBuscarEmprestimos;
+    private JTable tabelaEmprestimosAtivos;
+    private DefaultTableModel tableModelEmprestimos;
+    private JButton btnRegistrarDevolucao, btnRenovarPrazo; // Renovar é opcional
+
+    private EmprestimoDAO emprestimoDAO;
+    private LivroDAO livroDAO; // Para consultar info dos livros
+    private UsuarioDAO usuarioDAO; // Para consultar info dos usuários
+    private Funcionario funcionarioLogado;
+
+    private static final SimpleDateFormat sdfDisplay = new SimpleDateFormat("dd/MM/yyyy");
+
+
+    public PainelEmprestimosDevolucoes(Funcionario funcionarioLogado) {
+        this.funcionarioLogado = funcionarioLogado;
+        try {
+            emprestimoDAO = new EmprestimoDAO();
+            livroDAO = new LivroDAO();
+            usuarioDAO = new UsuarioDAO();
+        } catch (SQLException e) {
+            this.emprestimoDAO = null; this.livroDAO = null; this.usuarioDAO = null;
+            JOptionPane.showMessageDialog(this, "Erro crítico ao inicializar DAOs para Empréstimos: " + e.getMessage(), "Erro DAO", JOptionPane.ERROR_MESSAGE);
+        }
+
+        setLayout(new BorderLayout(10, 20)); // Espaçamento vertical maior
+        setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        initComponentsEmprestimos();
+        layoutComponentsEmprestimos();
+        addEventHandlersEmprestimos();
+
+        if (emprestimoDAO != null) {
+            carregarEmprestimosAtivosNaTabela();
+        }
+    }
+
+    private void initComponentsEmprestimos() {
+        // Novo Empréstimo
+        txtIdUsuarioEmp = new JTextField(5);
+        lblNomeUsuarioEmp = new JLabel("Nome do usuário aparecerá aqui");
+        btnBuscarUsuarioEmp = new JButton("Buscar Usuário");
+        txtIdLivroEmp = new JTextField(5);
+        lblTituloLivroEmp = new JLabel("Título do livro aparecerá aqui");
+        lblDisponibilidadeLivroEmp = new JLabel("Disponibilidade: -");
+        btnBuscarLivroEmp = new JButton("Buscar Livro");
+        txtDiasEmprestimo = new JTextField(3);
+        txtDiasEmprestimo.setText("15"); // Default 15 dias
+        btnRegistrarEmprestimo = new JButton("Registrar Empréstimo");
+
+        // Devoluções / Empréstimos Ativos
+        campoBuscaEmprestimos = new JTextField(25);
+        btnBuscarEmprestimos = new JButton("Buscar Empréstimos");
+        String[] colunasEmp = {"ID Emp.", "ID Livro", "Título Livro", "ID Usuário", "Nome Usuário", "Data Empréstimo", "Data Prev. Devol.", "Status"};
+        tableModelEmprestimos = new DefaultTableModel(colunasEmp, 0) {
+            @Override public boolean isCellEditable(int r, int c){return false;}
+        };
+        tabelaEmprestimosAtivos = new JTable(tableModelEmprestimos);
+        tabelaEmprestimosAtivos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        btnRegistrarDevolucao = new JButton("Registrar Devolução");
+        btnRegistrarDevolucao.setEnabled(false);
+        // btnRenovarPrazo = new JButton("Renovar Prazo"); // Opcional
+        // btnRenovarPrazo.setEnabled(false);
+    }
+
+    private void layoutComponentsEmprestimos() {
+        // --- Painel Superior: Novo Empréstimo ---
+        JPanel painelNovoEmprestimo = new JPanel(new GridBagLayout());
+        painelNovoEmprestimo.setBorder(BorderFactory.createTitledBorder("Registrar Novo Empréstimo"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5,5,5,5);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        int y = 0;
+        gbc.gridx = 0; gbc.gridy = y; painelNovoEmprestimo.add(new JLabel("ID do Usuário:"), gbc);
+        gbc.gridx = 1; gbc.gridy = y; painelNovoEmprestimo.add(txtIdUsuarioEmp, gbc);
+        gbc.gridx = 2; gbc.gridy = y++; painelNovoEmprestimo.add(btnBuscarUsuarioEmp, gbc);
+        gbc.gridx = 1; gbc.gridy = y++; gbc.gridwidth=2; painelNovoEmprestimo.add(lblNomeUsuarioEmp, gbc);
+        gbc.gridwidth=1;
+
+        gbc.gridx = 0; gbc.gridy = y; painelNovoEmprestimo.add(new JLabel("ID do Livro/ISBN:"), gbc);
+        gbc.gridx = 1; gbc.gridy = y; painelNovoEmprestimo.add(txtIdLivroEmp, gbc);
+        gbc.gridx = 2; gbc.gridy = y++; painelNovoEmprestimo.add(btnBuscarLivroEmp, gbc);
+        gbc.gridx = 1; gbc.gridy = y; gbc.gridwidth=2; painelNovoEmprestimo.add(lblTituloLivroEmp, gbc);
+        gbc.gridx = 1; gbc.gridy = ++y; gbc.gridwidth=2; painelNovoEmprestimo.add(lblDisponibilidadeLivroEmp, gbc);
+        gbc.gridwidth=1; y++;
+
+
+        gbc.gridx = 0; gbc.gridy = y; painelNovoEmprestimo.add(new JLabel("Dias para Empréstimo:"), gbc);
+        gbc.gridx = 1; gbc.gridy = y++; painelNovoEmprestimo.add(txtDiasEmprestimo, gbc);
+
+        gbc.gridx = 0; gbc.gridy = y; gbc.gridwidth = 3; gbc.anchor = GridBagConstraints.CENTER;
+        painelNovoEmprestimo.add(btnRegistrarEmprestimo, gbc);
+
+        add(painelNovoEmprestimo, BorderLayout.NORTH);
+
+        // --- Painel Inferior: Empréstimos Ativos e Devoluções ---
+        JPanel painelListaDevolucoes = new JPanel(new BorderLayout(5,5));
+        painelListaDevolucoes.setBorder(BorderFactory.createTitledBorder("Empréstimos Ativos e Processar Devoluções"));
+
+        JPanel painelBuscaLista = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        painelBuscaLista.add(new JLabel("Buscar Empréstimo:"));
+        painelBuscaLista.add(campoBuscaEmprestimos);
+        painelBuscaLista.add(btnBuscarEmprestimos);
+        painelListaDevolucoes.add(painelBuscaLista, BorderLayout.NORTH);
+
+        painelListaDevolucoes.add(new JScrollPane(tabelaEmprestimosAtivos), BorderLayout.CENTER);
+
+        JPanel painelAcoesLista = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        painelAcoesLista.add(btnRegistrarDevolucao);
+        // painelAcoesLista.add(btnRenovarPrazo); // Se implementar
+        painelListaDevolucoes.add(painelAcoesLista, BorderLayout.SOUTH);
+
+        add(painelListaDevolucoes, BorderLayout.CENTER);
+    }
+
+    private void addEventHandlersEmprestimos() {
+        if (emprestimoDAO == null || livroDAO == null || usuarioDAO == null) return;
+
+        btnBuscarUsuarioEmp.addActionListener(e -> buscarUsuarioParaEmprestimo());
+        btnBuscarLivroEmp.addActionListener(e -> buscarLivroParaEmprestimo());
+        btnRegistrarEmprestimo.addActionListener(e -> efetuarRegistroEmprestimo());
+
+        btnBuscarEmprestimos.addActionListener(e -> carregarEmprestimosAtivosNaTabela()); // Ou uma busca mais específica
+
+        tabelaEmprestimosAtivos.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int selectedRow = tabelaEmprestimosAtivos.getSelectedRow();
+                if (selectedRow != -1) {
+                    String status = tableModelEmprestimos.getValueAt(selectedRow, 7).toString();
+                    btnRegistrarDevolucao.setEnabled("Pendente".equals(status) || "Atrasado".equals(status));
+                    // btnRenovarPrazo.setEnabled("Pendente".equals(status));
+                } else {
+                    btnRegistrarDevolucao.setEnabled(false);
+                    // btnRenovarPrazo.setEnabled(false);
+                }
+            }
+        });
+        btnRegistrarDevolucao.addActionListener(e -> efetuarRegistroDevolucao());
+        // Adicionar listener para btnRenovarPrazo se implementar
+    }
+
+    private void buscarUsuarioParaEmprestimo() {
+        String idStr = txtIdUsuarioEmp.getText().trim();
+        lblNomeUsuarioEmp.setText("Nome do usuário aparecerá aqui");
+        if (idStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Digite o ID do Usuário.", "Busca Usuário", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            int idUsuario = Integer.parseInt(idStr);
+            Usuario u = usuarioDAO.buscarUsuarioPorId(idUsuario);
+            if (u != null) {
+                lblNomeUsuarioEmp.setText("Usuário: " + u.getNome());
+            } else {
+                lblNomeUsuarioEmp.setText("Usuário não encontrado.");
+            }
+        } catch (NumberFormatException ex) {
+            lblNomeUsuarioEmp.setText("ID do Usuário inválido.");
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar usuário: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void buscarLivroParaEmprestimo() {
+        String idStr = txtIdLivroEmp.getText().trim();
+        lblTituloLivroEmp.setText("Título do livro aparecerá aqui");
+        lblDisponibilidadeLivroEmp.setText("Disponibilidade: -");
+        if (idStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Digite o ID ou ISBN do Livro.", "Busca Livro", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            Livro l = null;
+            // Tenta buscar por ID primeiro, depois por ISBN se não for número
+            try {
+                int idLivro = Integer.parseInt(idStr);
+                l = livroDAO.buscarLivroPorId(idLivro);
+            } catch (NumberFormatException e) {
+                // Se não for número, assumir que é ISBN e buscar (precisaria de um método no DAO)
+                // List<Livro> livrosPorIsbn = livroDAO.buscarPorIsbn(idStr);
+                // if(!livrosPorIsbn.isEmpty()) l = livrosPorIsbn.get(0);
+                 JOptionPane.showMessageDialog(this, "Busca por ISBN não implementada neste exemplo. Busque por ID.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+            }
+
+            if (l != null) {
+                lblTituloLivroEmp.setText("Livro: " + l.getTitulo());
+                lblDisponibilidadeLivroEmp.setText("Disponível: " + l.getQuantidadeDisponivel() + " un.");
+            } else {
+                lblTituloLivroEmp.setText("Livro não encontrado.");
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar livro: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void efetuarRegistroEmprestimo() {
+        try {
+            int idUsuario = Integer.parseInt(txtIdUsuarioEmp.getText().trim());
+            int idLivro = Integer.parseInt(txtIdLivroEmp.getText().trim());
+            int dias = Integer.parseInt(txtDiasEmprestimo.getText().trim());
+
+            // Calcular data de devolução prevista
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(new Date()); // Data atual como data de empréstimo
+            // A procedure SQL usa CURDATE() para data_emprestimo
+            // A procedure SQL espera a data_devolucao_prevista
+            cal.add(Calendar.DAY_OF_MONTH, dias);
+            Date dataDevolucaoPrevista = cal.getTime();
+
+            String mensagem = emprestimoDAO.registrarNovoEmprestimo(idLivro, idUsuario, funcionarioLogado.getIdFuncionario(), dataDevolucaoPrevista);
+            JOptionPane.showMessageDialog(this, mensagem, "Registro de Empréstimo", JOptionPane.INFORMATION_MESSAGE);
+            
+            if(mensagem.toLowerCase().contains("sucesso")){
+                carregarEmprestimosAtivosNaTabela(); // Atualiza lista de empréstimos
+                // Limpar campos do formulário de empréstimo
+                txtIdUsuarioEmp.setText(""); lblNomeUsuarioEmp.setText("Nome do usuário aparecerá aqui");
+                txtIdLivroEmp.setText(""); lblTituloLivroEmp.setText("Título do livro aparecerá aqui");
+                lblDisponibilidadeLivroEmp.setText("Disponibilidade: -");
+                txtDiasEmprestimo.setText("15");
+            }
+
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "IDs e Dias devem ser números válidos.", "Erro de Formato", JOptionPane.ERROR_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao registrar empréstimo: " + ex.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+
+    private void carregarEmprestimosAtivosNaTabela() {
+        tableModelEmprestimos.setRowCount(0);
+        if(emprestimoDAO == null || livroDAO == null || usuarioDAO == null) return;
+
+        try {
+            List<Emprestimo> emprestimos = emprestimoDAO.listarTodosEmprestimos();
+            for (Emprestimo emp : emprestimos) {
+                // Apenas mostrar Pendentes ou Atrasados na lista de "ativos"
+                if ("Pendente".equals(emp.getStatusEmprestimo()) || "Atrasado".equals(emp.getStatusEmprestimo())) {
+                    Livro livro = livroDAO.buscarLivroPorId(emp.getIdLivro());
+                    Usuario usuario = usuarioDAO.buscarUsuarioPorId(emp.getIdUsuario());
+                    tableModelEmprestimos.addRow(new Object[]{
+                            emp.getIdEmprestimo(),
+                            emp.getIdLivro(),
+                            livro != null ? livro.getTitulo() : "Livro não encontrado",
+                            emp.getIdUsuario(),
+                            usuario != null ? usuario.getNome() : "Usuário não encontrado",
+                            emp.getDataEmprestimo() != null ? sdfDisplay.format(emp.getDataEmprestimo()) : "N/A",
+                            emp.getDataDevolucaoPrevista() != null ? sdfDisplay.format(emp.getDataDevolucaoPrevista()) : "N/A",
+                            emp.getStatusEmprestimo()
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar empréstimos: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+        btnRegistrarDevolucao.setEnabled(false); // Desabilitar após recarregar
+    }
+    
+    private void efetuarRegistroDevolucao(){
+        int selectedRow = tabelaEmprestimosAtivos.getSelectedRow();
+        if(selectedRow == -1){
+            JOptionPane.showMessageDialog(this, "Selecione um empréstimo na tabela para registrar a devolução.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int idEmprestimo = (int) tableModelEmprestimos.getValueAt(selectedRow, 0);
+        
+        try {
+            String mensagem = emprestimoDAO.registrarDevolucao(idEmprestimo, funcionarioLogado.getIdFuncionario());
+            JOptionPane.showMessageDialog(this, mensagem, "Registro de Devolução", JOptionPane.INFORMATION_MESSAGE);
+            
+            if(mensagem.toLowerCase().contains("sucesso")){
+                carregarEmprestimosAtivosNaTabela(); // Atualiza a lista
+            }
+        } catch (SQLException ex) {
+             JOptionPane.showMessageDialog(this, "Erro ao registrar devolução: " + ex.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+             ex.printStackTrace();
+        }
+    }
+
+    public void fecharRecursosDAO() {
+        if (emprestimoDAO != null) emprestimoDAO.fecharConexaoDAO();
+        if (livroDAO != null) livroDAO.fecharConexaoDAO();
+        if (usuarioDAO != null) usuarioDAO.fecharConexaoDAO();
+    }
+}

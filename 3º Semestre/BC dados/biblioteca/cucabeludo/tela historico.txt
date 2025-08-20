@@ -1,0 +1,318 @@
+package com.mycompany.biblioteca; // Certifique-se que este é o seu pacote
+
+import biblioteca.dao.EmprestimoDAO;
+import biblioteca.logica.HistoricoEmprestimoDetalhado;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter; // Para ordenação da tabela
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList; // Para inicializar a lista de filtros no DAO
+import java.util.Comparator; // Para ordenação de datas
+import java.util.Date;
+import java.util.List;
+
+public class PainelHistoricoMovimentacoes extends JPanel { // MUITO IMPORTANTE: extends JPanel
+
+    // Componentes da UI para os filtros
+    private JTextField txtDataDe, txtDataAte, txtFiltroUsuario, txtFiltroLivro, txtFiltroFuncionario;
+    private JComboBox<String> cmbFiltroStatus;
+    private JButton btnAplicarFiltros, btnLimparFiltros;
+
+    // Componentes da UI para a tabela
+    private JTable tabelaHistorico;
+    private DefaultTableModel tableModelHistorico;
+    private TableRowSorter<DefaultTableModel> sorter; // Para ordenação da tabela
+
+    private EmprestimoDAO emprestimoDAO;
+    // Formato para parsear datas dos campos de texto E para exibir na tabela
+    private static final SimpleDateFormat sdfInterface = new SimpleDateFormat("dd/MM/yyyy");
+
+    public PainelHistoricoMovimentacoes() {
+        // Inicializa o DAO
+        try {
+            emprestimoDAO = new EmprestimoDAO();
+        } catch (SQLException e) {
+            this.emprestimoDAO = null; // Define como nulo para tratamento posterior
+            // Mostra um erro mais informativo e não impede a UI de carregar (mas funcionalidade limitada)
+            SwingUtilities.invokeLater(() -> // Garante que o JOptionPane seja mostrado na EDT
+                JOptionPane.showMessageDialog(this,
+                        "Erro crítico ao inicializar o acesso aos dados do histórico: " + e.getMessage() +
+                        "\nA funcionalidade de histórico pode não funcionar corretamente.",
+                        "Erro DAO Histórico", JOptionPane.ERROR_MESSAGE)
+            );
+            e.printStackTrace(); // Para log no console
+        }
+
+        // Configurações básicas do painel principal
+        setLayout(new BorderLayout(10, 10)); // Layout principal
+        setBorder(new EmptyBorder(10, 10, 10, 10)); // Margem interna
+
+        initComponentsPainel();      // Cria os componentes da UI
+        layoutComponentsPainel();    // Organiza os componentes na tela
+        addEventHandlersPainel();    // Adiciona os listeners de eventos (ações dos botões)
+
+        // Carrega os dados iniciais na tabela (todos os registros, sem filtro)
+        if (emprestimoDAO != null) {
+            aplicarFiltros(); // Chama aplicarFiltros sem nenhum filtro ativo para carregar tudo
+        }
+    }
+
+    private void initComponentsPainel() {
+        // Inicialização dos campos de filtro
+        txtDataDe = new JTextField(8); // Tamanho ajustado para data
+        txtDataAte = new JTextField(8);
+        txtFiltroUsuario = new JTextField(15);
+        txtFiltroLivro = new JTextField(15);
+        txtFiltroFuncionario = new JTextField(15);
+        cmbFiltroStatus = new JComboBox<>(new String[]{"Todos", "Pendente", "Devolvido", "Atrasado"});
+
+        btnAplicarFiltros = new JButton("APLICAR FILTROS / BUSCAR");
+        btnLimparFiltros = new JButton("LIMPAR FILTROS");
+
+        // Configuração da tabela e seu modelo
+        String[] colunasTabela = {
+            "ID Emp.", "Livro (Título)", "Usuário (Nome)", "Data Empréstimo",
+            "Data Prev. Devol.", "Data Devol. Efetiva", "Status",
+            "Func. Empréstimo", "Func. Devolução"
+            // Adicione as colunas de ID se quiser exibi-las, mas elas já estão no POJO
+            // "ID Livro", "ID Usuário", "ID Func Emp", "ID Func Dev"
+        };
+        tableModelHistorico = new DefaultTableModel(colunasTabela, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Torna as células da tabela não editáveis diretamente
+            }
+            // Sobrescreve getColumnClass para permitir ordenação correta de datas
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 3 || columnIndex == 4 || columnIndex == 5) { // Colunas de Data
+                    return Date.class;
+                }
+                return super.getColumnClass(columnIndex);
+            }
+        };
+        tabelaHistorico = new JTable(tableModelHistorico);
+        tabelaHistorico.setFillsViewportHeight(true); // Faz a tabela ocupar toda a altura do JScrollPane
+        tabelaHistorico.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); // Permite selecionar apenas uma linha
+        tabelaHistorico.setAutoCreateRowSorter(true); // Habilita ordenação ao clicar nos cabeçalhos
+
+        // Configurando o sorter para datas
+        sorter = new TableRowSorter<>(tableModelHistorico);
+        tabelaHistorico.setRowSorter(sorter);
+
+        // Comparador personalizado para colunas de data (para tratar Strings como Datas)
+        Comparator<Object> dateComparator = (o1, o2) -> {
+            if (o1 == null && o2 == null) return 0;
+            if (o1 == null) return -1;
+            if (o2 == null) return 1;
+            try {
+                Date date1 = sdfInterface.parse(o1.toString());
+                Date date2 = sdfInterface.parse(o2.toString());
+                return date1.compareTo(date2);
+            } catch (ParseException e) {
+                return o1.toString().compareTo(o2.toString()); // Fallback para comparação de string
+            }
+        };
+        sorter.setComparator(3, dateComparator); // Coluna Data Empréstimo
+        sorter.setComparator(4, dateComparator); // Coluna Data Prev. Devol.
+        sorter.setComparator(5, dateComparator); // Coluna Data Devol. Efetiva
+
+
+        // Definindo larguras preferidas para algumas colunas (ajuste conforme necessário)
+        tabelaHistorico.getColumnModel().getColumn(0).setPreferredWidth(60);  // ID Emp.
+        tabelaHistorico.getColumnModel().getColumn(1).setPreferredWidth(200); // Livro
+        tabelaHistorico.getColumnModel().getColumn(2).setPreferredWidth(150); // Usuário
+        tabelaHistorico.getColumnModel().getColumn(3).setPreferredWidth(100); // Data Empréstimo
+        tabelaHistorico.getColumnModel().getColumn(4).setPreferredWidth(110); // Data Prev. Devol.
+        tabelaHistorico.getColumnModel().getColumn(5).setPreferredWidth(110); // Data Devol. Efetiva
+        tabelaHistorico.getColumnModel().getColumn(6).setPreferredWidth(80);  // Status
+        tabelaHistorico.getColumnModel().getColumn(7).setPreferredWidth(120); // Func. Empréstimo
+        tabelaHistorico.getColumnModel().getColumn(8).setPreferredWidth(120); // Func. Devolução
+    }
+
+    // Dentro da classe PainelHistoricoMovimentacoes.java
+
+private void layoutComponentsPainel() {
+    // --- Painel de Filtros (será adicionado ao NORTH do BorderLayout principal) ---
+    JPanel painelFiltros = new JPanel(new GridBagLayout()); // Usaremos este diretamente com GridBag
+    painelFiltros.setBorder(new TitledBorder("Filtros de Pesquisa"));
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(5, 5, 5, 5); // Espaçamento entre componentes
+    gbc.fill = GridBagConstraints.HORIZONTAL; // Faz os JTextFields e JComboBox preencherem horizontalmente
+
+    // Linha 0: Período
+    gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE; // Alinha JLabel à direita
+    painelFiltros.add(new JLabel("Período (De):"), gbc);
+    gbc.gridx = 1; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(txtDataDe, gbc);
+
+    gbc.gridx = 2; gbc.gridy = 0; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE;
+    painelFiltros.add(new JLabel("Até:"), gbc);
+    gbc.gridx = 3; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(txtDataAte, gbc);
+
+    // Linha 1: Usuário e Livro
+    gbc.gridx = 0; gbc.gridy = 1; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE;
+    painelFiltros.add(new JLabel("Usuário (ID/Nome):"), gbc);
+    gbc.gridx = 1; gbc.gridy = 1; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(txtFiltroUsuario, gbc);
+
+    gbc.gridx = 2; gbc.gridy = 1; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE;
+    painelFiltros.add(new JLabel("Livro (ID/Título/ISBN):"), gbc);
+    gbc.gridx = 3; gbc.gridy = 1; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(txtFiltroLivro, gbc);
+
+    // Linha 2: Status e Funcionário
+    gbc.gridx = 0; gbc.gridy = 2; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE;
+    painelFiltros.add(new JLabel("Status:"), gbc);
+    gbc.gridx = 1; gbc.gridy = 2; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(cmbFiltroStatus, gbc);
+
+    gbc.gridx = 2; gbc.gridy = 2; gbc.anchor = GridBagConstraints.EAST; gbc.fill = GridBagConstraints.NONE;
+    painelFiltros.add(new JLabel("Funcionário (ID/Nome):"), gbc);
+    gbc.gridx = 3; gbc.gridy = 2; gbc.anchor = GridBagConstraints.WEST; gbc.fill = GridBagConstraints.HORIZONTAL;
+    painelFiltros.add(txtFiltroFuncionario, gbc);
+
+    // Linha 3: Botões
+    JPanel painelBotoesFiltro = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0)); // Alinha botões à direita
+    painelBotoesFiltro.add(btnLimparFiltros);
+    painelBotoesFiltro.add(btnAplicarFiltros);
+
+    gbc.gridx = 0; gbc.gridy = 3;
+    gbc.gridwidth = 4; // Faz o painel de botões ocupar as 4 colunas
+    gbc.anchor = GridBagConstraints.CENTER; // Centraliza o painel de botões
+    gbc.fill = GridBagConstraints.NONE; // Não expande o painel de botões
+    gbc.insets = new Insets(10, 5, 5, 5); // Adiciona um pouco mais de espaço acima dos botões
+    painelFiltros.add(painelBotoesFiltro, gbc);
+    gbc.gridwidth = 1; // Reseta gridwidth
+
+    // Adiciona o painel de filtros ao NORTE do BorderLayout do PainelHistoricoMovimentacoes
+    add(painelFiltros, BorderLayout.NORTH);
+
+    // Adiciona a tabela com barra de rolagem ao CENTRO
+    add(new JScrollPane(tabelaHistorico), BorderLayout.CENTER);
+}
+
+    private void addEventHandlersPainel() {
+        if (emprestimoDAO == null) { // Se o DAO não foi inicializado, não adicionar listeners
+            btnAplicarFiltros.setEnabled(false);
+            btnLimparFiltros.setEnabled(false);
+            return;
+        }
+
+        btnAplicarFiltros.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                aplicarFiltros();
+            }
+        });
+
+        btnLimparFiltros.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                limparFiltros();
+            }
+        });
+    }
+
+    private void aplicarFiltros() {
+        tableModelHistorico.setRowCount(0); // Limpa a tabela antes de carregar novos dados
+        if (emprestimoDAO == null) {
+             JOptionPane.showMessageDialog(this, "Acesso ao banco de dados não está disponível.", "Erro DAO", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Parsear datas dos campos de texto
+        Date dataDe = null, dataAte = null;
+        sdfInterface.setLenient(false); // Datas devem ser válidas
+        try {
+            if (!txtDataDe.getText().trim().isEmpty()) {
+                dataDe = sdfInterface.parse(txtDataDe.getText().trim());
+            }
+            if (!txtDataAte.getText().trim().isEmpty()) {
+                dataAte = sdfInterface.parse(txtDataAte.getText().trim());
+            }
+            // Validação simples de período
+            if (dataDe != null && dataAte != null && dataAte.before(dataDe)) {
+                JOptionPane.showMessageDialog(this, "A data 'Até' não pode ser anterior à data 'De'.", "Erro de Período", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        } catch (ParseException e) {
+            JOptionPane.showMessageDialog(this, "Formato de data inválido para o período. Use dd/MM/yyyy.", "Erro de Data", JOptionPane.ERROR_MESSAGE);
+            return; // Interrompe se as datas do filtro estiverem inválidas
+        }
+
+        // Coleta outros termos de filtro
+        String termoUsuario = txtFiltroUsuario.getText().trim();
+        String termoLivro = txtFiltroLivro.getText().trim();
+        String statusSelecionado = (String) cmbFiltroStatus.getSelectedItem();
+        String termoFuncionario = txtFiltroFuncionario.getText().trim();
+
+        // Chama o método do DAO para buscar os dados filtrados
+        try {
+            List<HistoricoEmprestimoDetalhado> historico = emprestimoDAO.listarHistoricoFiltrado(
+                    dataDe, dataAte, termoUsuario, termoLivro, statusSelecionado, termoFuncionario
+            );
+
+            if (historico.isEmpty()) {
+                // Mostra mensagem apenas se algum filtro foi aplicado (além do status "Todos")
+                boolean algumFiltroAtivo = (dataDe != null || dataAte != null ||
+                                           !termoUsuario.isEmpty() || !termoLivro.isEmpty() ||
+                                           !statusSelecionado.equalsIgnoreCase("Todos") ||
+                                           !termoFuncionario.isEmpty());
+                if (algumFiltroAtivo) {
+                    JOptionPane.showMessageDialog(this, "Nenhum registro encontrado para os filtros aplicados.", "Busca Histórico", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                     // Se nenhum filtro foi aplicado e a lista está vazia, pode ser a primeira carga ou banco vazio
+                    // Nenhuma mensagem específica aqui, a tabela vazia já indica isso.
+                }
+            }
+
+            // Popula a tabela com os resultados
+            for (HistoricoEmprestimoDetalhado item : historico) {
+                tableModelHistorico.addRow(new Object[]{
+                    item.getIdEmprestimo(),
+                    item.getTituloLivro(),
+                    item.getNomeUsuario(),
+                    // Formata as datas para exibição na tabela
+                    item.getDataEmprestimo() != null ? sdfInterface.format(item.getDataEmprestimo()) : "",
+                    item.getDataDevolucaoPrevista() != null ? sdfInterface.format(item.getDataDevolucaoPrevista()) : "",
+                    item.getDataDevolucaoEfetiva() != null ? sdfInterface.format(item.getDataDevolucaoEfetiva()) : "",
+                    item.getStatusEmprestimo(),
+                    item.getNomeFuncionarioEmprestimo() != null ? item.getNomeFuncionarioEmprestimo() : "N/D",
+                    item.getNomeFuncionarioDevolucao() != null ? item.getNomeFuncionarioDevolucao() : "N/D"
+                    // Adicione aqui os IDs se quiser mostrá-los na tabela:
+                    // item.getIdLivro(), item.getIdUsuario(), item.getIdFuncEmprestimo(), item.getIdFuncDevolucao()
+                });
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar histórico de empréstimos: " + e.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace(); // Para depuração
+        }
+    }
+
+    private void limparFiltros() {
+        txtDataDe.setText("");
+        txtDataAte.setText("");
+        txtFiltroUsuario.setText("");
+        txtFiltroLivro.setText("");
+        cmbFiltroStatus.setSelectedIndex(0); // Seleciona "Todos"
+        txtFiltroFuncionario.setText("");
+        aplicarFiltros(); // Recarrega a tabela, efetivamente mostrando todos os registros
+    }
+    
+    // Método para ser chamado ao fechar a aplicação
+    public void fecharRecursosDAO() {
+        if (emprestimoDAO != null) {
+            emprestimoDAO.fecharConexaoDAO();
+        }
+    }
+}

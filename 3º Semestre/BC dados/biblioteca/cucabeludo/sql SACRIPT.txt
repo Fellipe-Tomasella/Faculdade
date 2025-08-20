@@ -1,0 +1,372 @@
+-- -----------------------------------------------------
+-- Schema projetofinal_biblioteca
+-- -----------------------------------------------------
+DROP SCHEMA IF EXISTS `projetofinal_biblioteca`;
+CREATE SCHEMA IF NOT EXISTS `projetofinal_biblioteca` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `projetofinal_biblioteca`;
+
+-- -----------------------------------------------------
+-- Table `Livros`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `Livros`;
+CREATE TABLE IF NOT EXISTS `Livros` (
+  `id_livro` INT NOT NULL AUTO_INCREMENT,
+  `titulo` VARCHAR(255) NOT NULL,
+  `autor` VARCHAR(255) NOT NULL,
+  `editora` VARCHAR(100) NULL,
+  `genero` VARCHAR(100) NULL,
+  `ano_publicacao` INT NULL,
+  `isbn` VARCHAR(20) NOT NULL,
+  `quantidade_disponivel` INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id_livro`),
+  UNIQUE INDEX `isbn_UNIQUE` (`isbn` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `Usuarios`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `Usuarios`;
+CREATE TABLE IF NOT EXISTS `Usuarios` (
+  `id_usuario` INT NOT NULL AUTO_INCREMENT,
+  `nome` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `cpf` VARCHAR(14) NOT NULL, -- Formato XXX.XXX.XXX-XX
+  `telefone` VARCHAR(20) NULL, -- Formato (XX) XXXXX-XXXX ou similar
+  PRIMARY KEY (`id_usuario`),
+  UNIQUE INDEX `email_UNIQUE` (`email` ASC) VISIBLE,
+  UNIQUE INDEX `cpf_UNIQUE` (`cpf` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `Funcionarios`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `Funcionarios`;
+CREATE TABLE IF NOT EXISTS `Funcionarios` (
+  `id_funcionario` INT NOT NULL AUTO_INCREMENT,
+  `nome` VARCHAR(255) NOT NULL,
+  `cargo` VARCHAR(100) NOT NULL,
+  `login` VARCHAR(50) NOT NULL,
+  `senha` VARCHAR(255) NOT NULL, -- Armazenar hash da senha, não a senha em texto plano
+  PRIMARY KEY (`id_funcionario`),
+  UNIQUE INDEX `login_UNIQUE` (`login` ASC) VISIBLE
+) ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Table `Emprestimos`
+-- -----------------------------------------------------
+DROP TABLE IF EXISTS `Emprestimos`;
+CREATE TABLE IF NOT EXISTS `Emprestimos` (
+  `id_emprestimo` INT NOT NULL AUTO_INCREMENT,
+  `id_livro` INT NOT NULL,
+  `id_usuario` INT NOT NULL,
+  `id_funcionario_emprestimo` INT NULL, -- Funcionário que registrou o empréstimo
+  `id_funcionario_devolucao` INT NULL, -- Funcionário que registrou a devolução
+  `data_emprestimo` DATE NOT NULL,
+  `data_devolucao_prevista` DATE NOT NULL,
+  `data_devolucao_efetiva` DATE NULL,
+  `status_emprestimo` ENUM('Pendente', 'Devolvido', 'Atrasado') NOT NULL DEFAULT 'Pendente',
+  PRIMARY KEY (`id_emprestimo`),
+  INDEX `fk_emprestimos_livros_idx` (`id_livro` ASC) VISIBLE,
+  INDEX `fk_emprestimos_usuarios_idx` (`id_usuario` ASC) VISIBLE,
+  INDEX `fk_emprestimos_funcionarios_emprestimo_idx` (`id_funcionario_emprestimo` ASC) VISIBLE,
+  INDEX `fk_emprestimos_funcionarios_devolucao_idx` (`id_funcionario_devolucao` ASC) VISIBLE,
+  CONSTRAINT `fk_emprestimos_livros`
+    FOREIGN KEY (`id_livro`)
+    REFERENCES `Livros` (`id_livro`)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_usuarios`
+    FOREIGN KEY (`id_usuario`)
+    REFERENCES `Usuarios` (`id_usuario`)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_funcionarios_emprestimo`
+    FOREIGN KEY (`id_funcionario_emprestimo`)
+    REFERENCES `Funcionarios` (`id_funcionario`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_emprestimos_funcionarios_devolucao`
+    FOREIGN KEY (`id_funcionario_devolucao`)
+    REFERENCES `Funcionarios` (`id_funcionario`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE = InnoDB;
+
+-- -----------------------------------------------------
+-- Inserção de Dados de Exemplo
+-- -----------------------------------------------------
+
+-- Livros
+INSERT INTO `Livros` (`titulo`, `autor`, `editora`, `genero`, `ano_publicacao`, `isbn`, `quantidade_disponivel`) VALUES
+('O Senhor dos Anéis: A Sociedade do Anel', 'J.R.R. Tolkien', 'HarperCollins', 'Fantasia', 1954, '978-0618260274', 5),
+('1984', 'George Orwell', 'Companhia das Letras', 'Distopia', 1949, '978-8535914849', 3),
+('Dom Quixote', 'Miguel de Cervantes', 'Penguin Classics', 'Clássico', 1605, '978-0142437230', 2),
+('A Arte da Guerra', 'Sun Tzu', 'Clube de Autores', 'Estratégia', 500, '978-8590000000', 7),
+('Java: Como Programar', 'Paul Deitel', 'Pearson', 'Programação', 2022, '978-8543004792', 10);
+
+-- Usuários
+INSERT INTO `Usuarios` (`nome`, `email`, `cpf`, `telefone`) VALUES
+('Ana Silva', 'ana.silva@email.com', '111.111.111-11', '(11) 91111-1111'),
+('Bruno Costa', 'bruno.costa@email.com', '222.222.222-22', '(21) 92222-2222'),
+('Carla Dias', 'carla.dias@email.com', '333.333.333-33', '(31) 93333-3333');
+
+-- Funcionários
+INSERT INTO `Funcionarios` (`nome`, `cargo`, `login`, `senha`) VALUES
+('Carlos Administrador', 'Bibliotecário Chefe', 'admin', 'senha_hash_admin'), -- Lembre-se: USAR HASH NA APLICAÇÃO
+('Fernanda Atendente', 'Atendente', 'fernanda', 'senha_hash_fernanda'); -- Lembre-se: USAR HASH NA APLICAÇÃO
+
+-- Empréstimos
+-- Empréstimo 1: Ana pegou "1984", registrado por Fernanda
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-8535914849'),      -- ID Livro '1984'
+  (SELECT id_usuario FROM Usuarios WHERE email = 'ana.silva@email.com'), -- ID Usuario 'Ana Silva'
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'fernanda'), -- ID Funcionário 'Fernanda Atendente'
+  '2024-05-01',
+  '2024-05-15',
+  'Pendente'
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-8535914849';
+
+-- Empréstimo 2: Bruno pegou "Dom Quixote", registrado por Carlos, devolvido e registrado por Carlos
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `id_funcionario_devolucao`, `data_emprestimo`, `data_devolucao_prevista`, `data_devolucao_efetiva`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-0142437230'),     -- ID Livro 'Dom Quixote'
+  (SELECT id_usuario FROM Usuarios WHERE email = 'bruno.costa@email.com'), -- ID Usuario 'Bruno Costa'
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'),    -- ID Funcionário Empréstimo 'Carlos Administrador'
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'),    -- ID Funcionário Devolução 'Carlos Administrador'
+  '2024-04-20',
+  '2024-05-04',
+  '2024-05-03',
+  'Devolvido'
+);
+-- Não decrementamos quantidade_disponivel para Dom Quixote aqui, pois já foi devolvido.
+
+-- Empréstimo 3: Carla pegou "O Senhor dos Anéis", registrado por Fernanda, e está atrasado
+INSERT INTO `Emprestimos` (`id_livro`, `id_usuario`, `id_funcionario_emprestimo`, `data_emprestimo`, `data_devolucao_prevista`, `status_emprestimo`)
+VALUES (
+  (SELECT id_livro FROM Livros WHERE isbn = '978-0618260274'),      -- ID Livro 'O Senhor dos Anéis'
+  (SELECT id_usuario FROM Usuarios WHERE email = 'carla.dias@email.com'), -- ID Usuario 'Carla Dias'
+  (SELECT id_funcionario FROM Funcionarios WHERE login = 'fernanda'), -- ID Funcionário 'Fernanda Atendente'
+  '2024-03-10',
+  '2024-03-24',
+  'Atrasado' -- Status manualmente definido como 'Atrasado' para exemplo, uma procedure ou trigger poderia automatizar isso
+);
+UPDATE Livros SET quantidade_disponivel = quantidade_disponivel - 1 WHERE isbn = '978-0618260274';
+
+
+-- -----------------------------------------------------
+-- Views (adaptadas para snake_case)
+-- -----------------------------------------------------
+
+CREATE OR REPLACE VIEW `view_livros_disponiveis` AS
+SELECT
+    id_livro,
+    titulo,
+    autor,
+    editora,
+    genero,
+    ano_publicacao,
+    isbn,
+    quantidade_disponivel
+FROM
+    `Livros`
+WHERE
+    quantidade_disponivel > 0;
+
+CREATE OR REPLACE VIEW `view_historico_emprestimos_usuario` AS
+SELECT
+    U.id_usuario,
+    U.nome AS nome_usuario,
+    U.email AS email_usuario,
+    L.id_livro,
+    L.titulo AS titulo_livro,
+    L.isbn AS isbn_livro,
+    E.id_emprestimo,
+    E.data_emprestimo,
+    E.data_devolucao_prevista,
+    E.data_devolucao_efetiva,
+    E.status_emprestimo,
+    FE.nome AS nome_funcionario_emprestimo, -- Funcionário que registrou empréstimo
+    FD.nome AS nome_funcionario_devolucao   -- Funcionário que registrou devolução
+FROM
+    `Emprestimos` E
+JOIN
+    `Usuarios` U ON E.id_usuario = U.id_usuario
+JOIN
+    `Livros` L ON E.id_livro = L.id_livro
+LEFT JOIN
+    `Funcionarios` FE ON E.id_funcionario_emprestimo = FE.id_funcionario
+LEFT JOIN
+    `Funcionarios` FD ON E.id_funcionario_devolucao = FD.id_funcionario
+ORDER BY
+    U.nome, E.data_emprestimo DESC;
+
+CREATE OR REPLACE VIEW `view_emprestimos_vencidos` AS
+SELECT
+    E.id_emprestimo,
+    L.titulo AS titulo_livro,
+    U.nome AS nome_usuario,
+    U.email AS email_usuario,
+    U.telefone AS telefone_usuario,
+    E.data_emprestimo,
+    E.data_devolucao_prevista,
+    DATEDIFF(CURDATE(), E.data_devolucao_prevista) AS dias_atraso
+FROM
+    `Emprestimos` E
+JOIN
+    `Livros` L ON E.id_livro = L.id_livro
+JOIN
+    `Usuarios` U ON E.id_usuario = U.id_usuario
+WHERE
+    E.data_devolucao_prevista < CURDATE() AND E.status_emprestimo IN ('Pendente', 'Atrasado');
+
+
+-- -----------------------------------------------------
+-- Stored Procedures (adaptadas para snake_case e rastreamento de funcionário)
+-- -----------------------------------------------------
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS `RegistrarEmprestimo`$$
+CREATE PROCEDURE `RegistrarEmprestimo`(
+    IN p_id_livro INT,
+    IN p_id_usuario INT,
+    IN p_id_funcionario_emprestimo INT,
+    IN p_data_devolucao_prevista DATE
+)
+BEGIN
+    DECLARE v_quantidade_disponivel INT;
+    DECLARE v_livro_existe INT;
+    DECLARE v_usuario_existe INT;
+    DECLARE v_funcionario_existe INT;
+
+    SELECT COUNT(*) INTO v_livro_existe FROM Livros WHERE id_livro = p_id_livro;
+    SELECT COUNT(*) INTO v_usuario_existe FROM Usuarios WHERE id_usuario = p_id_usuario;
+    SELECT COUNT(*) INTO v_funcionario_existe FROM Funcionarios WHERE id_funcionario = p_id_funcionario_emprestimo;
+
+    IF v_livro_existe = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Livro não encontrado.';
+    ELSEIF v_usuario_existe = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Usuário não encontrado.';
+    ELSEIF v_funcionario_existe = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Funcionário responsável pelo empréstimo não encontrado.';
+    ELSE
+        SELECT quantidade_disponivel INTO v_quantidade_disponivel
+        FROM Livros
+        WHERE id_livro = p_id_livro FOR UPDATE; -- Adicionado FOR UPDATE para locking
+
+        IF v_quantidade_disponivel > 0 THEN
+            START TRANSACTION;
+            INSERT INTO Emprestimos (id_livro, id_usuario, id_funcionario_emprestimo, data_emprestimo, data_devolucao_prevista, status_emprestimo)
+            VALUES (p_id_livro, p_id_usuario, p_id_funcionario_emprestimo, CURDATE(), p_data_devolucao_prevista, 'Pendente');
+
+            UPDATE Livros
+            SET quantidade_disponivel = quantidade_disponivel - 1
+            WHERE id_livro = p_id_livro;
+            COMMIT;
+            SELECT 'Empréstimo registrado com sucesso.' AS Mensagem;
+        ELSE
+            ROLLBACK; -- Necessário caso FOR UPDATE não seja o suficiente para impedir a transação de começar.
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Livro não disponível para empréstimo.';
+        END IF;
+    END IF;
+END$$
+
+DROP PROCEDURE IF EXISTS `RegistrarDevolucao`$$
+CREATE PROCEDURE `RegistrarDevolucao`(
+    IN p_id_emprestimo INT,
+    IN p_id_funcionario_devolucao INT
+)
+BEGIN
+    DECLARE v_emprestimo_existe INT DEFAULT 0;
+    DECLARE v_status_atual ENUM('Pendente', 'Devolvido', 'Atrasado');
+    DECLARE v_id_livro_emprestado INT;
+    DECLARE v_funcionario_existe INT;
+
+    SELECT COUNT(*) INTO v_funcionario_existe FROM Funcionarios WHERE id_funcionario = p_id_funcionario_devolucao;
+
+    IF v_funcionario_existe = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Funcionário responsável pela devolução não encontrado.';
+    ELSE
+        SELECT COUNT(*), status_emprestimo, id_livro INTO v_emprestimo_existe, v_status_atual, v_id_livro_emprestado
+        FROM Emprestimos
+        WHERE id_emprestimo = p_id_emprestimo
+        GROUP BY status_emprestimo, id_livro; -- Agrupando para obter os valores corretos com o COUNT
+
+        IF v_emprestimo_existe = 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Empréstimo não encontrado.';
+        ELSEIF v_status_atual = 'Devolvido' THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro: Este livro já foi devolvido.';
+        ELSE
+            START TRANSACTION;
+            UPDATE Emprestimos
+            SET status_emprestimo = 'Devolvido',
+                data_devolucao_efetiva = CURDATE(),
+                id_funcionario_devolucao = p_id_funcionario_devolucao
+            WHERE id_emprestimo = p_id_emprestimo;
+
+            UPDATE Livros
+            SET quantidade_disponivel = quantidade_disponivel + 1
+            WHERE id_livro = v_id_livro_emprestado;
+            COMMIT;
+            SELECT 'Devolução registrada com sucesso.' AS Mensagem;
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+
+-- -----------------------------------------------------
+-- Testes (CRUD via SQL e chamadas de procedures/views)
+-- -----------------------------------------------------
+-- CRUD Livros
+-- CREATE (já feito com INSERTs)
+-- READ
+SELECT * FROM Livros;
+SELECT * FROM Livros WHERE genero = 'Fantasia';
+-- UPDATE
+UPDATE Livros SET quantidade_disponivel = 4 WHERE isbn = '978-0618260274';
+-- DELETE (Cuidado! Pode falhar se houver FKs em Empréstimos)
+-- DELETE FROM Livros WHERE isbn = 'ISBN_DE_UM_LIVRO_SEM_EMPRESTIMO';
+
+-- CRUD Usuários
+SELECT * FROM Usuarios;
+UPDATE Usuarios SET telefone = '(41) 94444-4444' WHERE email = 'carla.dias@email.com';
+-- DELETE FROM Usuarios WHERE cpf = 'CPF_DE_USUARIO_SEM_EMPRESTIMO';
+
+-- CRUD Funcionários
+SELECT * FROM Funcionarios;
+UPDATE Funcionarios SET cargo = 'Gerente de Atendimento' WHERE login = 'fernanda';
+-- DELETE FROM Funcionarios WHERE login = 'LOGIN_A_DELETAR';
+
+-- CRUD Empréstimos (Normalmente gerenciado por Procedures)
+SELECT * FROM Emprestimos;
+
+-- Testando Views
+SELECT * FROM view_livros_disponiveis;
+SELECT * FROM view_historico_emprestimos_usuario WHERE nome_usuario = 'Ana Silva';
+SELECT * FROM view_emprestimos_vencidos;
+
+-- Testando Stored Procedures
+-- Registrar um novo empréstimo (supondo que IDs existem e há quantidade)
+-- Pegar IDs para teste:
+-- SELECT id_livro FROM Livros WHERE isbn = '978-8543004792'; -- Java: Como Programar (ID 5)
+-- SELECT id_usuario FROM Usuarios WHERE email = 'ana.silva@email.com'; -- Ana Silva (ID 1)
+-- SELECT id_funcionario FROM Funcionarios WHERE login = 'admin'; -- Carlos (ID 1)
+-- CALL RegistrarEmprestimo(5, 1, 1, '2025-07-15');
+-- SELECT * FROM Livros WHERE id_livro = 5; -- Verificar quantidade
+-- SELECT * FROM Emprestimos WHERE id_livro = 5 AND id_usuario = 1;
+
+-- Registrar devolução (pegar um ID de empréstimo pendente)
+-- Exemplo: Empréstimo 1 (Ana, livro '1984') tem id_emprestimo = 1 (verifique no seu banco após inserts)
+-- Supondo que o funcionário Carlos (ID 1) está registrando a devolução:
+-- CALL RegistrarDevolucao(1, 1);
+-- SELECT * FROM Livros WHERE id_livro = (SELECT id_livro FROM Emprestimos WHERE id_emprestimo = 1);
+-- SELECT * FROM Emprestimos WHERE id_emprestimo = 1;
+
+-- Tentar registrar empréstimo de livro sem estoque
+-- Primeiro, faça um livro ficar com estoque 0. Ex: O 'Java: Como Programar' tem 10.
+-- Empreste ele 10 vezes para esgotar (ou atualize manualmente a quantidade_disponivel para 0).
+-- UPDATE Livros SET quantidade_disponivel = 0 WHERE isbn = '978-8543004792';
+-- CALL RegistrarEmprestimo(5, 2, 1, '2025-07-25'); -- Deverá falhar

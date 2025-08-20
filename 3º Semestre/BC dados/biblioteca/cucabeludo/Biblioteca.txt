@@ -1,0 +1,38 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ */
+
+package com.mycompany.biblioteca;
+
+import com.formdev.flatlaf.FlatLightLaf; // Para o Look and Feel FlatLaf
+import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+
+public class Biblioteca {
+
+    public static void main(String[] args) {
+        // Tenta aplicar um Look and Feel mais moderno. FlatLaf é uma excelente opção.
+        try {
+            // Para usar FlatLaf, você precisa ter adicionado a dependência no seu pom.xml
+            // <dependency>
+            //     <groupId>com.formdev</groupId>
+            //     <artifactId>flatlaf</artifactId>
+            //     <version>3.4.1</version> <!-- Verifique a versão mais recente -->
+            // </dependency>
+            UIManager.setLookAndFeel( new FlatLightLaf() );
+            // Ou, se não quiser usar FlatLaf, pode tentar o do sistema:
+            // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (UnsupportedLookAndFeelException e) {
+            System.err.println("Falha ao carregar o Look and Feel: " + e.getMessage());
+            // A aplicação continuará com o Look and Feel padrão do Java
+        }
+
+        // Garante que a UI seja criada na Event Dispatch Thread (EDT)
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                new TelaLogin().setVisible(true);
+            }
+        });
+    }
+}

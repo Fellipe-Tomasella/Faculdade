@@ -1,0 +1,326 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+import biblioteca.dao.LivroDAO;
+import biblioteca.logica.Livro;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.SQLException;
+import java.util.List;
+
+public class PainelGerenciarLivros extends JPanel {
+
+    private JTextField txtId, txtTitulo, txtAutor, txtEditora, txtGenero, txtAno, txtIsbn, txtQtdDisp;
+    private JButton btnNovo, btnSalvar, btnRemover, btnLimparFormulario, btnBuscar;
+    private JTextField campoBuscaLivro;
+    private JTable tabelaLivros;
+    private DefaultTableModel tableModel;
+
+    private LivroDAO livroDAO;
+
+    public PainelGerenciarLivros() {
+        // Inicializar o DAO. Idealmente, DAOs poderiam ser injetados ou obtidos de um ServiceLocator/DI.
+        try {
+            livroDAO = new LivroDAO();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao conectar ao banco para Livros: " + e.getMessage(), "Erro de Conexão", JOptionPane.ERROR_MESSAGE);
+            // Tratar o erro de forma que o painel ainda possa ser exibido, mas com funcionalidade limitada ou mensagem.
+        }
+
+        setLayout(new BorderLayout(10, 10));
+        setBorder(new EmptyBorder(15, 15, 15, 15));
+        setBackground(Color.WHITE);
+
+        initComponents();
+        layoutComponents();
+        addEventHandlers();
+
+        if (livroDAO != null) {
+            carregarLivrosNaTabela();
+        }
+    }
+
+    private void initComponents() {
+        // Campos de Texto para o formulário
+        txtId = new JTextField(5);
+        txtId.setEditable(false);
+        txtTitulo = new JTextField(25);
+        txtAutor = new JTextField(25);
+        txtEditora = new JTextField(20);
+        txtGenero = new JTextField(15); // Poderia ser um JComboBox
+        txtAno = new JTextField(6);
+        txtIsbn = new JTextField(15);
+        txtQtdDisp = new JTextField(5);
+
+        // Botões do formulário
+        btnNovo = new JButton("Novo"); // Limpa o formulário para uma nova entrada
+        // Adicionar ícones se desejar: btnNovo.setIcon(new ImageIcon(getClass().getResource("/icons/add_icon.png")));
+        btnSalvar = new JButton("Salvar"); // Adiciona novo ou atualiza existente
+        // btnSalvar.setIcon(new ImageIcon(getClass().getResource("/icons/save_icon.png")));
+        btnLimparFormulario = new JButton("Limpar");
+        // btnLimparFormulario.setIcon(new ImageIcon(getClass().getResource("/icons/clear_icon.png")));
+
+
+        // Componentes da área de listagem/busca
+        campoBuscaLivro = new JTextField(30);
+        btnBuscar = new JButton("Buscar");
+        // btnBuscar.setIcon(new ImageIcon(getClass().getResource("/icons/search_icon.png")));
+
+        String[] colunas = {"ID", "Título", "Autor", "Editora", "Gênero", "Ano", "ISBN", "Qtd. Disp."};
+        tableModel = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int row, int column) { return false; }
+        };
+        tabelaLivros = new JTable(tableModel);
+        tabelaLivros.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); // Permitir selecionar apenas uma linha
+
+        btnRemover = new JButton("Excluir Selecionado");
+        // btnRemover.setIcon(new ImageIcon(getClass().getResource("/icons/delete_icon.png")));
+        btnRemover.setEnabled(false); // Habilitar quando uma linha for selecionada
+    }
+
+    private void layoutComponents() {
+        // --- Painel do Formulário (Esquerda ou Topo) ---
+        JPanel painelForm = new JPanel(new GridBagLayout());
+        painelForm.setBorder(BorderFactory.createTitledBorder("Detalhes do Livro"));
+        painelForm.setBackground(Color.WHITE);
+        GridBagConstraints gbcForm = new GridBagConstraints();
+        gbcForm.insets = new Insets(5,5,5,5);
+        gbcForm.anchor = GridBagConstraints.WEST;
+
+        gbcForm.gridx = 0; gbcForm.gridy = 0; painelForm.add(new JLabel("ID:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 0; gbcForm.fill = GridBagConstraints.HORIZONTAL; painelForm.add(txtId, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 1; painelForm.add(new JLabel("Título:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 1; painelForm.add(txtTitulo, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = 2; painelForm.add(new JLabel("Autor:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 2; painelForm.add(txtAutor, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 3; painelForm.add(new JLabel("Editora:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 3; painelForm.add(txtEditora, gbcForm);
+
+        gbcForm.gridx = 0; gbcForm.gridy = 4; painelForm.add(new JLabel("Gênero:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 4; painelForm.add(txtGenero, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 5; painelForm.add(new JLabel("Ano:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 5; painelForm.add(txtAno, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 6; painelForm.add(new JLabel("ISBN:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 6; painelForm.add(txtIsbn, gbcForm);
+        
+        gbcForm.gridx = 0; gbcForm.gridy = 7; painelForm.add(new JLabel("Qtd. Disp.:"), gbcForm);
+        gbcForm.gridx = 1; gbcForm.gridy = 7; painelForm.add(txtQtdDisp, gbcForm);
+
+        JPanel painelBotoesForm = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        painelBotoesForm.setBackground(Color.WHITE);
+        painelBotoesForm.add(btnNovo);
+        painelBotoesForm.add(btnSalvar);
+        painelBotoesForm.add(btnLimparFormulario);
+        gbcForm.gridx = 0; gbcForm.gridy = 8; gbcForm.gridwidth = 2; gbcForm.fill = GridBagConstraints.NONE; gbcForm.anchor = GridBagConstraints.CENTER;
+        painelForm.add(painelBotoesForm, gbcForm);
+
+
+        // --- Painel da Lista (Direita ou Baixo) ---
+        JPanel painelLista = new JPanel(new BorderLayout(5,5));
+        painelLista.setBorder(BorderFactory.createTitledBorder("Acervo de Livros"));
+        painelLista.setBackground(Color.WHITE);
+
+        JPanel painelBusca = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        painelBusca.setBackground(Color.WHITE);
+        painelBusca.add(new JLabel("Buscar (Título/Autor/ISBN):"));
+        painelBusca.add(campoBuscaLivro);
+        painelBusca.add(btnBuscar);
+        painelLista.add(painelBusca, BorderLayout.NORTH);
+
+        JScrollPane scrollPaneTabela = new JScrollPane(tabelaLivros);
+        painelLista.add(scrollPaneTabela, BorderLayout.CENTER);
+
+        JPanel painelAcoesTabela = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        painelAcoesTabela.setBackground(Color.WHITE);
+        painelAcoesTabela.add(btnRemover);
+        painelLista.add(painelAcoesTabela, BorderLayout.SOUTH);
+
+
+        // --- Adicionando painel do formulário e da lista ao PainelGerenciarLivros ---
+        // Pode usar JSplitPane para dividir ou BorderLayout
+        // Por simplicidade, vamos colocar o formulário no NORTH e a lista no CENTER
+        add(painelForm, BorderLayout.NORTH); // Ou BorderLayout.WEST
+        add(painelLista, BorderLayout.CENTER); // Ou BorderLayout.CENTER
+    }
+
+    private void addEventHandlers() {
+        if (livroDAO == null) return; // Não adicionar listeners se o DAO falhou ao inicializar
+
+        btnNovo.addActionListener(e -> {
+            limparFormulario();
+            txtTitulo.requestFocus();
+        });
+
+        btnLimparFormulario.addActionListener(e -> limparFormulario());
+
+        btnSalvar.addActionListener(e -> salvarLivro());
+
+        btnRemover.addActionListener(e -> removerLivroSelecionado());
+
+        btnBuscar.addActionListener(e -> buscarLivros());
+
+        tabelaLivros.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int linhaSelecionada = tabelaLivros.getSelectedRow();
+                if (linhaSelecionada != -1) {
+                    carregarLivroDoFormularioPelaTabela(linhaSelecionada);
+                    btnRemover.setEnabled(true);
+                }
+            }
+        });
+    }
+
+    private void limparFormulario() {
+        txtId.setText("");
+        txtTitulo.setText("");
+        txtAutor.setText("");
+        txtEditora.setText("");
+        txtGenero.setText("");
+        txtAno.setText("");
+        txtIsbn.setText("");
+        txtQtdDisp.setText("");
+        tabelaLivros.clearSelection();
+        btnRemover.setEnabled(false);
+        txtTitulo.requestFocus();
+    }
+
+    private void carregarLivrosNaTabela() {
+        tableModel.setRowCount(0); // Limpa tabela
+        try {
+            List<Livro> livros = livroDAO.listarTodosLivros();
+            for (Livro livro : livros) {
+                tableModel.addRow(new Object[]{
+                        livro.getIdLivro(),
+                        livro.getTitulo(),
+                        livro.getAutor(),
+                        livro.getEditora(),
+                        livro.getGenero(),
+                        livro.getAnoPublicacao() == 0 ? "" : livro.getAnoPublicacao(), // Exibe vazio se for 0
+                        livro.getIsbn(),
+                        livro.getQuantidadeDisponivel()
+                });
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar livros: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void buscarLivros() {
+        String termoBusca = campoBuscaLivro.getText().trim();
+        tableModel.setRowCount(0); 
+        try {
+            List<Livro> livros;
+            if (termoBusca.isEmpty()) {
+                livros = livroDAO.listarTodosLivros();
+            } else {
+                // Precisaria de um método no DAO para buscar por termo genérico
+                // Por enquanto, vamos assumir que busca por título
+                livros = livroDAO.buscarLivrosPorTitulo(termoBusca); 
+            }
+            for (Livro livro : livros) {
+                 tableModel.addRow(new Object[]{
+                        livro.getIdLivro(), livro.getTitulo(), livro.getAutor(),
+                        livro.getEditora(), livro.getGenero(),
+                        livro.getAnoPublicacao() == 0 ? "" : livro.getAnoPublicacao(),
+                        livro.getIsbn(), livro.getQuantidadeDisponivel()
+                });
+            }
+            if(livros.isEmpty()){
+                JOptionPane.showMessageDialog(this, "Nenhum livro encontrado para: '" + termoBusca + "'", "Busca", JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao buscar livros: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+
+    private void carregarLivroDoFormularioPelaTabela(int linha) {
+        txtId.setText(tableModel.getValueAt(linha, 0).toString());
+        txtTitulo.setText(tableModel.getValueAt(linha, 1).toString());
+        txtAutor.setText(tableModel.getValueAt(linha, 2).toString());
+        txtEditora.setText(tableModel.getValueAt(linha, 3) != null ? tableModel.getValueAt(linha, 3).toString() : "");
+        txtGenero.setText(tableModel.getValueAt(linha, 4) != null ? tableModel.getValueAt(linha, 4).toString() : "");
+        txtAno.setText(tableModel.getValueAt(linha, 5).toString());
+        txtIsbn.setText(tableModel.getValueAt(linha, 6).toString());
+        txtQtdDisp.setText(tableModel.getValueAt(linha, 7).toString());
+    }
+
+    private void salvarLivro() {
+        if (txtTitulo.getText().trim().isEmpty() || txtAutor.getText().trim().isEmpty() || txtIsbn.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Título, Autor e ISBN são obrigatórios.", "Validação", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        try {
+            String titulo = txtTitulo.getText().trim();
+            String autor = txtAutor.getText().trim();
+            String editora = txtEditora.getText().trim();
+            String genero = txtGenero.getText().trim();
+            int ano = txtAno.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtAno.getText().trim());
+            String isbn = txtIsbn.getText().trim();
+            int qtdDisp = txtQtdDisp.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtQtdDisp.getText().trim());
+
+            Livro livro = new Livro(titulo, autor, editora, genero, ano, isbn, qtdDisp);
+
+            if (txtId.getText().trim().isEmpty()) { // Adicionar novo
+                livroDAO.adicionarLivro(livro);
+                JOptionPane.showMessageDialog(this, "Livro adicionado com sucesso! ID: " + livro.getIdLivro(), "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            } else { // Atualizar existente
+                livro.setIdLivro(Integer.parseInt(txtId.getText().trim()));
+                livroDAO.atualizarLivro(livro);
+                JOptionPane.showMessageDialog(this, "Livro atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+            }
+            carregarLivrosNaTabela();
+            limparFormulario();
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Ano e Quantidade devem ser números válidos.", "Erro de Formato", JOptionPane.ERROR_MESSAGE);
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Erro ao salvar livro: " + ex.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+            ex.printStackTrace();
+        }
+    }
+
+    private void removerLivroSelecionado() {
+        if (txtId.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Nenhum livro selecionado para remover.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int idLivro = Integer.parseInt(txtId.getText().trim());
+        int confirmacao = JOptionPane.showConfirmDialog(this,
+                "Tem certeza que deseja remover o livro '" + txtTitulo.getText() + "' (ID: " + idLivro + ")?",
+                "Confirmar Remoção", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirmacao == JOptionPane.YES_OPTION) {
+            try {
+                livroDAO.removerLivro(idLivro);
+                JOptionPane.showMessageDialog(this, "Livro removido com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                carregarLivrosNaTabela();
+                limparFormulario();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao remover livro: " + ex.getMessage() +
+                        "\nVerifique se o livro não está em um empréstimo ativo.", "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
+    }
+    
+    // Método para ser chamado pela TelaPrincipalBiblioteca ao fechar a aplicação, por exemplo
+    public void fecharRecursosDAO() {
+        if (livroDAO != null) {
+            livroDAO.fecharConexaoDAO();
+        }
+    }
+}

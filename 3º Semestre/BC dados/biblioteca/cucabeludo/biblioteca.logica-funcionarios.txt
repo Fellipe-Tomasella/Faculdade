@@ -1,0 +1,96 @@
+
+package biblioteca.logica;
+
+/**
+ * Modela um funcionário da biblioteca.
+ * Responsável por gerenciar as operações do sistema, como empréstimos e cadastros.
+ */
+public class Funcionario {
+    private int idFuncionario;  // Identificador único do funcionário.
+    private String nome;
+    private String cargo;
+    private String login;       // Login utilizado para acesso ao sistema.
+    private String senha;       // Senha do funcionário (armazenada como hash no banco).
+
+    /**
+     * Construtor padrão.
+     */
+    public Funcionario() {
+    }
+
+    /**
+     * Construtor para criar um novo funcionário com seus dados.
+     * O ID é geralmente atribuído pelo banco de dados.
+     *
+     * @param nome Nome completo do funcionário.
+     * @param cargo Cargo ou função do funcionário na biblioteca.
+     * @param login Login para autenticação no sistema.
+     * @param senha Senha do funcionário (deve ser hasheada antes de persistir).
+     */
+    public Funcionario(String nome, String cargo, String login, String senha) {
+        this.nome = nome;
+        this.cargo = cargo;
+        this.login = login;
+        this.senha = senha; // A senha é recebida aqui, o hashing ocorre antes de salvar no DAO.
+    }
+
+    // --- Getters e Setters ---
+    // Métodos para acessar e modificar os atributos do funcionário.
+
+    public int getIdFuncionario() {
+        return idFuncionario;
+    }
+
+    public void setIdFuncionario(int idFuncionario) {
+        this.idFuncionario = idFuncionario;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public String getCargo() {
+        return cargo;
+    }
+
+    public void setCargo(String cargo) {
+        this.cargo = cargo;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public String getSenha() {
+        return senha;
+    }
+
+    public void setSenha(String senha) {
+        // Esta senha, quando recuperada do banco, será o hash.
+        // Quando definida para um novo funcionário ou alteração, será a senha em texto plano
+        // que será hasheada pela camada de serviço/DAO.
+        this.senha = senha;
+    }
+
+    /**
+     * Fornece uma representação textual do objeto Funcionario.
+     * Exibe informações relevantes, omitindo a senha por segurança.
+     *
+     * @return String com ID, nome, cargo e login do funcionário.
+     */
+    @Override
+    public String toString() {
+        return "Funcionário ID: " + idFuncionario +
+               " | Nome: '" + nome + '\'' +
+               " | Cargo: '" + cargo + '\'' +
+               " | Login: '" + login + '\'';
+    }
+}

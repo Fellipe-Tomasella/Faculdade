@@ -1,0 +1,406 @@
+
+package biblioteca.dao;
+
+import biblioteca.db.CriarConexao;
+import biblioteca.logica.Emprestimo;
+import biblioteca.logica.Historico; // Usando o nome simplificado do POJO
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
+// java.util.Date já é importado por biblioteca.logica.Emprestimo e biblioteca.logica.Historico
+
+/**
+ * DAO para a entidade Emprestimo e para consulta ao histórico de empréstimos.
+ * Responsável por registrar empréstimos, devoluções (usando Stored Procedures),
+ * e consultar dados de empréstimos e o histórico completo.
+ */
+public class EmprestimoDAO {
+
+    /**
+     * Chama a Stored Procedure `RegistrarEmprestimo` no banco de dados.
+     * A procedure é responsável por inserir o novo empréstimo e atualizar a quantidade de livros.
+     *
+     * @param idLivro ID do livro a ser emprestado.
+     * @param idUsuario ID do usuário que está pegando o livro.
+     * @param idFuncionarioEmprestimo ID do funcionário que está registrando o empréstimo (pode ser null).
+     * @param dataDevolucaoPrevistaUtil Data (java.util.Date) prevista para devolução.
+     * @return Uma mensagem de status retornada pela Stored Procedure.
+     * @throws SQLException Se ocorrer um erro durante a chamada da procedure.
+     */
+    public String registrarNovoEmprestimoSP(int idLivro, int idUsuario, Integer idFuncionarioEmprestimo, java.util.Date dataDevolucaoPrevistaUtil) throws SQLException {
+        String sql = "{CALL RegistrarEmprestimo(?, ?, ?, ?)}"; // Chamada da Stored Procedure
+        Connection conexao = null;
+        CallableStatement cs = null;
+        ResultSet rs = null;
+        String mensagem = "Erro: Stored Procedure não retornou mensagem."; // Mensagem padrão
+
+        try {
+            conexao = CriarConexao.getConexao();
+            cs = conexao.prepareCall(sql);
+
+            cs.setInt(1, idLivro);
+            cs.setInt(2, idUsuario);
+
+            if (idFuncionarioEmprestimo != null) {
+                cs.setInt(3, idFuncionarioEmprestimo);
+            } else {
+                cs.setNull(3, Types.INTEGER);
+            }
+
+            // Converte java.util.Date para java.sql.Date para a Stored Procedure.
+            // A Stored Procedure 'RegistrarEmprestimo' espera um DATE.
+            if (dataDevolucaoPrevistaUtil != null) {
+                cs.setDate(4, new java.sql.Date(dataDevolucaoPrevistaUtil.getTime()));
+            } else {
+                // Se a data for obrigatória na SP, isso causará um erro no banco.
+                // A lógica da aplicação deve garantir que uma data válida seja passada.
+                cs.setNull(4, Types.DATE);
+            }
+
+            // A procedure pode retornar um ResultSet com uma mensagem.
+            boolean hasResultSet = cs.execute();
+            if (hasResultSet) {
+                rs = cs.getResultSet();
+                if (rs.next()) {
+                    mensagem = rs.getString("Mensagem"); // Coluna "Mensagem" definida na Stored Procedure
+                }
+            } else {
+                // Se a SP não retornar um ResultSet, pode-se verificar cs.getUpdateCount()
+                // ou assumir sucesso se não houver exceção. Para este caso,
+                // uma mensagem informativa se não houver ResultSet de mensagem.
+                System.out.println("Procedure RegistrarEmprestimo executada. Verifique o banco para confirmação (sem ResultSet de mensagem).");
+                mensagem = "Empréstimo possivelmente registrado (sem mensagem de confirmação da procedure).";
+            }
+        } finally {
+            CriarConexao.fechar(rs); // Fecha o ResultSet da SP
+            CriarConexao.fecharRecursos(conexao, cs); // Fecha conexão e CallableStatement
+        }
+        return mensagem;
+    }
+
+    /**
+     * Chama a Stored Procedure `RegistrarDevolucao` no banco de dados.
+     * A procedure atualiza o status do empréstimo, data de devolução e quantidade de livros.
+     *
+     * @param idEmprestimo ID do empréstimo a ser devolvido.
+     * @param idFuncionarioDevolucao ID do funcionário que está registrando a devolução (pode ser null).
+     * @return Uma mensagem de status retornada pela Stored Procedure.
+     * @throws SQLException Se ocorrer um erro durante a chamada da procedure.
+     */
+    public String registrarDevolucaoSP(int idEmprestimo, Integer idFuncionarioDevolucao) throws SQLException {
+        String sql = "{CALL RegistrarDevolucao(?, ?)}";
+        Connection conexao = null;
+        CallableStatement cs = null;
+        ResultSet rs = null;
+        String mensagem = "Erro: Stored Procedure de devolução não retornou mensagem.";
+
+        try {
+            conexao = CriarConexao.getConexao();
+            cs = conexao.prepareCall(sql);
+
+            cs.setInt(1, idEmprestimo);
+            if (idFuncionarioDevolucao != null) {
+                cs.setInt(2, idFuncionarioDevolucao);
+            } else {
+                cs.setNull(2, Types.INTEGER);
+            }
+
+            boolean hasResultSet = cs.execute();
+            if (hasResultSet) {
+                rs = cs.getResultSet();
+                if (rs.next()) {
+                    mensagem = rs.getString("Mensagem");
+                }
+            } else {
+                System.out.println("Procedure RegistrarDevolucao executada (sem ResultSet de mensagem).");
+                mensagem = "Devolução possivelmente registrada (sem mensagem de confirmação da procedure).";
+            }
+        } finally {
+            CriarConexao.fechar(rs);
+            CriarConexao.fecharRecursos(conexao, cs);
+        }
+        return mensagem;
+    }
+
+    /**
+     * Adiciona um empréstimo manualmente (sem usar Stored Procedure).
+     * Usado se a lógica de negócio for tratada primariamente na aplicação.
+     *
+     * @param emprestimo Objeto Emprestimo com todos os dados.
+     * @throws SQLException Se ocorrer erro no banco.
+     */
+    public void adicionarEmprestimoManual(Emprestimo emprestimo) throws SQLException {
+        String sql = "INSERT INTO Emprestimos (id_livro, id_usuario, id_funcionario_emprestimo, " +
+                     "data_emprestimo, data_devolucao_prevista, status_emprestimo, " +
+                     "id_funcionario_devolucao, data_devolucao_efetiva) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet generatedKeys = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+
+            stmt.setInt(1, emprestimo.getIdLivro());
+            stmt.setInt(2, emprestimo.getIdUsuario());
+            stmt.setObject(3, emprestimo.getIdFuncionarioEmprestimo(), Types.INTEGER); // setObject lida com nulls
+
+            // Converte java.util.Date para java.sql.Date
+            stmt.setDate(4, new java.sql.Date(emprestimo.getDataEmprestimo().getTime()));
+            stmt.setDate(5, new java.sql.Date(emprestimo.getDataDevolucaoPrevista().getTime()));
+            stmt.setString(6, emprestimo.getStatusEmprestimo());
+            stmt.setObject(7, emprestimo.getIdFuncionarioDevolucao(), Types.INTEGER);
+
+            if (emprestimo.getDataDevolucaoEfetiva() != null) {
+                stmt.setDate(8, new java.sql.Date(emprestimo.getDataDevolucaoEfetiva().getTime()));
+            } else {
+                stmt.setNull(8, Types.DATE);
+            }
+
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows > 0) {
+                generatedKeys = stmt.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    emprestimo.setIdEmprestimo(generatedKeys.getInt(1));
+                } else {
+                     System.err.println("Falha ao obter ID do empréstimo manual.");
+                }
+            } else {
+                throw new SQLException("Inserção manual do empréstimo falhou.");
+            }
+        } finally {
+            CriarConexao.fechar(generatedKeys);
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+
+    /**
+     * Lista todos os empréstimos registrados.
+     *
+     * @return Lista de objetos Emprestimo.
+     * @throws SQLException Se ocorrer erro no banco.
+     */
+    public List<Emprestimo> listarTodosEmprestimos() throws SQLException {
+        List<Emprestimo> emprestimos = new ArrayList<>();
+        String sql = "SELECT * FROM Emprestimos ORDER BY data_emprestimo DESC, id_emprestimo DESC";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Emprestimo emp = new Emprestimo();
+                emp.setIdEmprestimo(rs.getInt("id_emprestimo"));
+                emp.setIdLivro(rs.getInt("id_livro"));
+                emp.setIdUsuario(rs.getInt("id_usuario"));
+                emp.setIdFuncionarioEmprestimo(rs.getObject("id_funcionario_emprestimo", Integer.class));
+                
+                // rs.getDate() retorna java.sql.Date, que é subclasse de java.util.Date.
+                // Atribuição direta funciona.
+                emp.setDataEmprestimo(rs.getTimestamp("data_emprestimo")); // Se for DATETIME no banco
+                // emp.setDataEmprestimo(rs.getDate("data_emprestimo")); // Se for DATE no banco
+                emp.setDataDevolucaoPrevista(rs.getDate("data_devolucao_prevista"));
+                emp.setDataDevolucaoEfetiva(rs.getDate("data_devolucao_efetiva"));
+                
+                emp.setStatusEmprestimo(rs.getString("status_emprestimo"));
+                emp.setIdFuncionarioDevolucao(rs.getObject("id_funcionario_devolucao", Integer.class));
+                emprestimos.add(emp);
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return emprestimos;
+    }
+    
+    /**
+     * Busca um empréstimo pelo seu ID.
+     *
+     * @param id O ID do empréstimo.
+     * @return O objeto Emprestimo, ou null se não encontrado.
+     * @throws SQLException Se ocorrer erro no banco.
+     */
+    public Emprestimo buscarEmprestimoPorId(int id) throws SQLException {
+        String sql = "SELECT * FROM Emprestimos WHERE id_emprestimo = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+        Emprestimo emp = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+            stmt.setInt(1, id);
+            rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                emp = new Emprestimo();
+                emp.setIdEmprestimo(rs.getInt("id_emprestimo"));
+                emp.setIdLivro(rs.getInt("id_livro"));
+                emp.setIdUsuario(rs.getInt("id_usuario"));
+                emp.setIdFuncionarioEmprestimo(rs.getObject("id_funcionario_emprestimo", Integer.class));
+                emp.setDataEmprestimo(rs.getTimestamp("data_emprestimo")); // Ou getDate()
+                emp.setDataDevolucaoPrevista(rs.getDate("data_devolucao_prevista"));
+                emp.setDataDevolucaoEfetiva(rs.getDate("data_devolucao_efetiva"));
+                emp.setStatusEmprestimo(rs.getString("status_emprestimo"));
+                emp.setIdFuncionarioDevolucao(rs.getObject("id_funcionario_devolucao", Integer.class));
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return emp;
+    }
+
+    /**
+     * Atualiza a data de devolução prevista e o status de um empréstimo.
+     * Utilizado para renovações, por exemplo.
+     *
+     * @param idEmprestimo ID do empréstimo a ser atualizado.
+     * @param novaDataPrevistaUtil Nova data (java.util.Date) prevista para devolução.
+     * @param novoStatus Novo status do empréstimo.
+     * @throws SQLException Se ocorrer erro no banco ou se o empréstimo não for encontrado.
+     */
+    public void atualizarDataDevolucaoPrevistaEStatus(int idEmprestimo, java.util.Date novaDataPrevistaUtil, String novoStatus) throws SQLException {
+        String sql = "UPDATE Emprestimos SET data_devolucao_prevista = ?, status_emprestimo = ? WHERE id_emprestimo = ?";
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sql);
+
+            if (novaDataPrevistaUtil != null) {
+                stmt.setDate(1, new java.sql.Date(novaDataPrevistaUtil.getTime()));
+            } else {
+                stmt.setNull(1, Types.DATE); // Se a lógica permitir data prevista nula.
+            }
+            stmt.setString(2, novoStatus);
+            stmt.setInt(3, idEmprestimo);
+            
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Nenhum empréstimo encontrado com ID " + idEmprestimo + " para atualizar.");
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt);
+        }
+    }
+    
+    // O método atualizarStatusEmprestimo(int idEmprestimo, String novoStatus) do seu código original
+    // pode ser combinado com o método acima se a atualização de status sempre acompanhar a data,
+    // ou mantido separado se houver casos de uso distintos.
+    // Por ora, vou manter o método mais completo acima.
+
+    /**
+     * Busca registros do histórico de empréstimos utilizando a view `view_historico_emprestimos_usuario`.
+     * Permite filtrar por período de empréstimo, usuário, livro, status e funcionário.
+     *
+     * @param dataEmpInicio Data inicial do período de empréstimo (pode ser null).
+     * @param dataEmpFim Data final do período de empréstimo (pode ser null).
+     * @param filtroUsuario Termo para filtrar por ID ou nome do usuário (pode ser null/vazio).
+     * @param filtroLivro Termo para filtrar por ID, título ou ISBN do livro (pode ser null/vazio).
+     * @param filtroStatus Status específico do empréstimo (ex: "Pendente", "Devolvido"). "Todos" ou null/vazio não filtra por status.
+     * @param filtroFuncionario Termo para filtrar por nome do funcionário (emprestimo ou devolução) (pode ser null/vazio).
+     * @return Uma lista de objetos {@link Historico} com os dados do histórico.
+     * @throws SQLException Se ocorrer um erro durante a consulta ao banco.
+     */
+    public List<Historico> buscarHistoricoCompletoView(
+            java.util.Date dataEmpInicio, java.util.Date dataEmpFim,
+            String filtroUsuario, String filtroLivro,
+            String filtroStatus, String filtroFuncionario) throws SQLException {
+
+        List<Historico> historicoList = new ArrayList<>();
+        // A view 'view_historico_emprestimos_usuario' já faz os JOINs necessários.
+        StringBuilder sqlBuilder = new StringBuilder("SELECT * FROM view_historico_emprestimos_usuario WHERE 1=1");
+        List<Object> parametros = new ArrayList<>(); // Para armazenar os parâmetros do PreparedStatement
+
+        // Adiciona cláusulas WHERE dinamicamente com base nos filtros fornecidos.
+        if (dataEmpInicio != null) {
+            sqlBuilder.append(" AND data_emprestimo >= ?");
+            parametros.add(new java.sql.Date(dataEmpInicio.getTime()));
+        }
+        if (dataEmpFim != null) {
+            // Para incluir o dia todo, podemos ajustar a data fim para o final do dia
+            // ou o banco de dados/view deve tratar isso. Aqui, usamos a data como está.
+            sqlBuilder.append(" AND data_emprestimo <= ?");
+            parametros.add(new java.sql.Date(dataEmpFim.getTime()));
+        }
+        if (filtroUsuario != null && !filtroUsuario.trim().isEmpty()) {
+            // Tenta converter para ID, senão busca por nome.
+            sqlBuilder.append(" AND (CAST(id_usuario AS CHAR) = ? OR LOWER(nome_usuario) LIKE LOWER(?))");
+            parametros.add(filtroUsuario.trim());
+            parametros.add("%" + filtroUsuario.trim().toLowerCase() + "%");
+        }
+        if (filtroLivro != null && !filtroLivro.trim().isEmpty()) {
+            sqlBuilder.append(" AND (CAST(id_livro AS CHAR) = ? OR LOWER(titulo_livro) LIKE LOWER(?) OR LOWER(isbn_livro) LIKE LOWER(?))");
+            parametros.add(filtroLivro.trim());
+            parametros.add("%" + filtroLivro.trim().toLowerCase() + "%");
+            parametros.add("%" + filtroLivro.trim().toLowerCase() + "%");
+        }
+        if (filtroStatus != null && !filtroStatus.trim().isEmpty() && !"Todos".equalsIgnoreCase(filtroStatus)) {
+            sqlBuilder.append(" AND LOWER(status_emprestimo) = LOWER(?)");
+            parametros.add(filtroStatus.trim().toLowerCase());
+        }
+        if (filtroFuncionario != null && !filtroFuncionario.trim().isEmpty()) {
+            sqlBuilder.append(" AND (LOWER(nome_funcionario_emprestimo) LIKE LOWER(?) OR LOWER(nome_funcionario_devolucao) LIKE LOWER(?))");
+            String termoFuncLike = "%" + filtroFuncionario.trim().toLowerCase() + "%";
+            parametros.add(termoFuncLike);
+            parametros.add(termoFuncLike);
+        }
+
+        sqlBuilder.append(" ORDER BY data_emprestimo DESC, id_emprestimo DESC");
+
+        Connection conexao = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conexao = CriarConexao.getConexao();
+            stmt = conexao.prepareStatement(sqlBuilder.toString());
+
+            // Define os parâmetros no PreparedStatement
+            for (int i = 0; i < parametros.size(); i++) {
+                stmt.setObject(i + 1, parametros.get(i));
+            }
+
+            rs = stmt.executeQuery();
+            while (rs.next()) {
+                Historico item = new Historico();
+                // Mapeamento dos campos da view para o objeto Historico
+                item.setIdEmprestimo(rs.getInt("id_emprestimo"));
+                // Assume-se que data_emprestimo na view pode ser DATETIME ou TIMESTAMP
+                // Se for apenas DATE, rs.getDate() seria suficiente.
+                item.setDataEmprestimo(rs.getTimestamp("data_emprestimo"));
+                item.setDataDevolucaoPrevista(rs.getDate("data_devolucao_prevista"));
+                item.setDataDevolucaoEfetiva(rs.getDate("data_devolucao_efetiva"));
+                item.setStatusEmprestimo(rs.getString("status_emprestimo"));
+
+                item.setIdLivro(rs.getInt("id_livro"));
+                item.setTituloLivro(rs.getString("titulo_livro"));
+                item.setIsbnLivro(rs.getString("isbn_livro"));
+
+                item.setIdUsuario(rs.getInt("id_usuario"));
+                item.setNomeUsuario(rs.getString("nome_usuario"));
+                item.setEmailUsuario(rs.getString("email_usuario")); // Supondo que a view tenha este campo
+
+                item.setNomeFuncionarioEmprestimo(rs.getString("nome_funcionario_emprestimo"));
+                item.setNomeFuncionarioDevolucao(rs.getString("nome_funcionario_devolucao"));
+                
+                historicoList.add(item);
+            }
+        } finally {
+            CriarConexao.fecharRecursos(conexao, stmt, rs);
+        }
+        return historicoList;
+    }
+}

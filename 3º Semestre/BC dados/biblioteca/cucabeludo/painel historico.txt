@@ -1,0 +1,238 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package biblioteca.ui;
+
+import biblioteca.logica.Historico; // POJO que mapeia a view
+import biblioteca.servico.EmprestimoServico;
+import biblioteca.exception.ValidacaoException;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+
+/**
+ * Painel para consultar o histórico completo de empréstimos.
+ * Permite filtrar os registros por diversos critérios.
+ * Interage com EmprestimoServico para buscar os dados da view.
+ */
+public class PainelRegistrosHistoricos extends JPanel {
+
+    // Componentes de Filtro
+    private JTextField txtDataInicioFiltro;
+    private JTextField txtDataFimFiltro;
+    private JTextField txtUsuarioFiltro;    // Pode ser ID ou parte do nome
+    private JTextField txtLivroFiltro;      // Pode ser ID, título ou ISBN
+    private JComboBox<String> comboStatusFiltro;
+    private JTextField txtFuncionarioFiltro; // Parte do nome do funcionário
+
+    private JButton btnAplicarFiltros;
+    private JButton btnLimparFiltros;
+
+    // Componentes da Tabela de Histórico
+    private JTable tabelaHistorico;
+    private DefaultTableModel tableModelHistorico;
+
+    private EmprestimoServico emprestimoServico;
+
+    // Formato de data para entrada nos filtros e exibição
+    private static final SimpleDateFormat SDF_ENTRADA_FILTRO = new SimpleDateFormat("dd/MM/yyyy");
+    private static final SimpleDateFormat SDF_EXIBICAO_TABELA = new SimpleDateFormat("dd/MM/yyyy HH:mm"); // Para data_emprestimo com hora
+    private static final SimpleDateFormat SDF_EXIBICAO_TABELA_DATA_SIMPLES = new SimpleDateFormat("dd/MM/yyyy");
+
+
+    public PainelRegistrosHistoricos() {
+        SDF_ENTRADA_FILTRO.setLenient(false); // Datas de filtro devem ser válidas
+
+        try {
+            this.emprestimoServico = new EmprestimoServico();
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Erro crítico ao inicializar serviço de empréstimos: " + e.getMessage() +
+                    "\nA consulta ao histórico pode estar indisponível.",
+                    "Erro de Inicialização de Serviço", JOptionPane.ERROR_MESSAGE);
+        }
+
+        setLayout(new BorderLayout(10, 10));
+        setBorder(new EmptyBorder(15, 15, 15, 15));
+
+        inicializarComponentes();
+        montarLayout();
+        adicionarListeners();
+
+        if (this.emprestimoServico != null) {
+            aplicarFiltros(); // Carrega todos os registros inicialmente (sem filtros)
+        }
+    }
+
+    private void inicializarComponentes() {
+        // Filtros
+        txtDataInicioFiltro = new JTextField(8);
+        txtDataFimFiltro = new JTextField(8);
+        txtUsuarioFiltro = new JTextField(15);
+        txtLivroFiltro = new JTextField(15);
+        String[] statusOptions = {"Todos", "Pendente", "Devolvido", "Atrasado"}; // Conforme ENUM/VARCHAR no banco
+        comboStatusFiltro = new JComboBox<>(statusOptions);
+        txtFuncionarioFiltro = new JTextField(15);
+
+        btnAplicarFiltros = new JButton("Buscar no Histórico");
+        btnLimparFiltros = new JButton("Limpar Filtros");
+
+        // Tabela
+        String[] colunas = {"ID Emp.", "Livro", "Usuário", "Data Empréstimo",
+                            "Prev. Devol.", "Devol. Efetiva", "Status",
+                            "Func. Empréstimo", "Func. Devolução"};
+        tableModelHistorico = new DefaultTableModel(colunas, 0) {
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+        tabelaHistorico = new JTable(tableModelHistorico);
+        tabelaHistorico.setAutoResizeMode(JTable.AUTO_RESIZE_OFF); // Permite scroll horizontal
+        tabelaHistorico.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        // Definir larguras preferenciais para as colunas para melhor visualização
+        configurarLarguraColunasTabela();
+    }
+    
+    private void configurarLarguraColunasTabela() {
+        tabelaHistorico.getColumnModel().getColumn(0).setPreferredWidth(70);  // ID Emp.
+        tabelaHistorico.getColumnModel().getColumn(1).setPreferredWidth(250); // Livro
+        tabelaHistorico.getColumnModel().getColumn(2).setPreferredWidth(200); // Usuário
+        tabelaHistorico.getColumnModel().getColumn(3).setPreferredWidth(130); // Data Empréstimo
+        tabelaHistorico.getColumnModel().getColumn(4).setPreferredWidth(100); // Prev. Devol.
+        tabelaHistorico.getColumnModel().getColumn(5).setPreferredWidth(100); // Devol. Efetiva
+        tabelaHistorico.getColumnModel().getColumn(6).setPreferredWidth(90);  // Status
+        tabelaHistorico.getColumnModel().getColumn(7).setPreferredWidth(150); // Func. Empréstimo
+        tabelaHistorico.getColumnModel().getColumn(8).setPreferredWidth(150); // Func. Devolução
+    }
+
+
+    private void montarLayout() {
+        // --- PAINEL DE FILTROS (NORTE) ---
+        JPanel painelFiltros = new JPanel(new GridBagLayout());
+        painelFiltros.setBorder(BorderFactory.createTitledBorder("Filtros do Histórico de Empréstimos"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        int linha = 0;
+        // Linha 1: Datas
+        gbc.gridx = 0; gbc.gridy = linha; painelFiltros.add(new JLabel("De (dd/mm/aaaa):"), gbc);
+        gbc.gridx = 1; gbc.gridy = linha; painelFiltros.add(txtDataInicioFiltro, gbc);
+        gbc.gridx = 2; gbc.gridy = linha; gbc.insets = new Insets(5, 15, 5, 5); painelFiltros.add(new JLabel("Até (dd/mm/aaaa):"), gbc);
+        gbc.gridx = 3; gbc.gridy = linha++; painelFiltros.add(txtDataFimFiltro, gbc);
+        gbc.insets = new Insets(5, 5, 5, 5); // Reset insets
+
+        // Linha 2: Usuário e Livro
+        gbc.gridx = 0; gbc.gridy = linha; painelFiltros.add(new JLabel("Usuário (ID/Nome):"), gbc);
+        gbc.gridx = 1; gbc.gridy = linha; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx=0.5; painelFiltros.add(txtUsuarioFiltro, gbc);
+        gbc.gridx = 2; gbc.gridy = linha; gbc.insets = new Insets(5, 15, 5, 5); painelFiltros.add(new JLabel("Livro (ID/Título/ISBN):"), gbc);
+        gbc.gridx = 3; gbc.gridy = linha++; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx=0.5; painelFiltros.add(txtLivroFiltro, gbc);
+        gbc.insets = new Insets(5, 5, 5, 5); gbc.weightx=0; // Reset
+
+        // Linha 3: Status e Funcionário
+        gbc.gridx = 0; gbc.gridy = linha; painelFiltros.add(new JLabel("Status:"), gbc);
+        gbc.gridx = 1; gbc.gridy = linha; gbc.fill = GridBagConstraints.NONE; painelFiltros.add(comboStatusFiltro, gbc);
+        gbc.gridx = 2; gbc.gridy = linha; gbc.insets = new Insets(5, 15, 5, 5); painelFiltros.add(new JLabel("Funcionário (Nome):"), gbc);
+        gbc.gridx = 3; gbc.gridy = linha++; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx=0.5; painelFiltros.add(txtFuncionarioFiltro, gbc);
+        gbc.insets = new Insets(5, 5, 5, 5); gbc.weightx=0; // Reset
+
+        // Linha 4: Botões
+        JPanel painelBotoesFiltro = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        painelBotoesFiltro.add(btnAplicarFiltros);
+        painelBotoesFiltro.add(btnLimparFiltros);
+        gbc.gridx = 0; gbc.gridy = linha; gbc.gridwidth = 4; gbc.anchor = GridBagConstraints.CENTER;
+        gbc.fill = GridBagConstraints.NONE;
+        painelFiltros.add(painelBotoesFiltro, gbc);
+
+        add(painelFiltros, BorderLayout.NORTH);
+
+        // --- TABELA DE HISTÓRICO (CENTRO) ---
+        add(new JScrollPane(tabelaHistorico), BorderLayout.CENTER);
+    }
+
+    private void adicionarListeners() {
+        btnAplicarFiltros.addActionListener(e -> aplicarFiltros());
+        btnLimparFiltros.addActionListener(e -> {
+            limparCamposDeFiltro();
+            aplicarFiltros(); // Recarrega a tabela sem filtros (ou com filtros padrão)
+        });
+    }
+
+    private void limparCamposDeFiltro() {
+        txtDataInicioFiltro.setText("");
+        txtDataFimFiltro.setText("");
+        txtUsuarioFiltro.setText("");
+        txtLivroFiltro.setText("");
+        comboStatusFiltro.setSelectedIndex(0); // "Todos"
+        txtFuncionarioFiltro.setText("");
+        txtDataInicioFiltro.requestFocus();
+    }
+
+    private void aplicarFiltros() {
+        if (emprestimoServico == null) {
+            tableModelHistorico.setRowCount(0);
+            return;
+        }
+        tableModelHistorico.setRowCount(0); // Limpa tabela
+
+        Date dataInicio = null;
+        Date dataFim = null;
+
+        try {
+            String dataInicioStr = txtDataInicioFiltro.getText().trim();
+            if (!dataInicioStr.isEmpty()) {
+                dataInicio = SDF_ENTRADA_FILTRO.parse(dataInicioStr);
+            }
+            String dataFimStr = txtDataFimFiltro.getText().trim();
+            if (!dataFimStr.isEmpty()) {
+                dataFim = SDF_ENTRADA_FILTRO.parse(dataFimStr);
+            }
+        } catch (ParseException e) {
+            JOptionPane.showMessageDialog(this, "Formato de data inválido nos filtros (use dd/MM/yyyy).", "Erro de Data", JOptionPane.WARNING_MESSAGE);
+            return; // Não prossegue com a busca se a data for inválida
+        }
+
+        String filtroUsuario = txtUsuarioFiltro.getText().trim();
+        String filtroLivro = txtLivroFiltro.getText().trim();
+        String filtroStatus = comboStatusFiltro.getSelectedItem().toString();
+        String filtroFuncionario = txtFuncionarioFiltro.getText().trim();
+
+        try {
+            List<Historico> historicoList = emprestimoServico.consultarHistorico(
+                    dataInicio, dataFim, filtroUsuario, filtroLivro, filtroStatus, filtroFuncionario);
+
+            if (historicoList.isEmpty()) {
+                 // JOptionPane.showMessageDialog(this, "Nenhum registro encontrado para os filtros aplicados.", "Busca Histórico", JOptionPane.INFORMATION_MESSAGE);
+                 // Apenas não popular é suficiente.
+            }
+
+            for (Historico item : historicoList) {
+                tableModelHistorico.addRow(new Object[]{
+                        item.getIdEmprestimo(),
+                        item.getTituloLivro() + (item.getIsbnLivro() != null ? " (ISBN: " + item.getIsbnLivro() + ")" : ""),
+                        item.getNomeUsuario() + (item.getEmailUsuario() != null ? " (" + item.getEmailUsuario() + ")" : ""),
+                        item.getDataEmprestimo() != null ? SDF_EXIBICAO_TABELA.format(item.getDataEmprestimo()) : "-", // data_emprestimo da view pode ter hora
+                        item.getDataDevolucaoPrevista() != null ? SDF_EXIBICAO_TABELA_DATA_SIMPLES.format(item.getDataDevolucaoPrevista()) : "-",
+                        item.getDataDevolucaoEfetiva() != null ? SDF_EXIBICAO_TABELA_DATA_SIMPLES.format(item.getDataDevolucaoEfetiva()) : "-",
+                        item.getStatusEmprestimo(),
+                        item.getNomeFuncionarioEmprestimo() != null ? item.getNomeFuncionarioEmprestimo() : "-",
+                        item.getNomeFuncionarioDevolucao() != null ? item.getNomeFuncionarioDevolucao() : "-"
+                });
+            }
+
+        } catch (ValidacaoException e) {
+            JOptionPane.showMessageDialog(this, e.getMessage(), "Erro de Validação", JOptionPane.WARNING_MESSAGE);
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao consultar histórico: " + e.getMessage(), "Erro de Banco", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}

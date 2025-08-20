@@ -1,0 +1,195 @@
+
+package biblioteca.servico;
+
+import biblioteca.dao.LivroDAO;
+import biblioteca.logica.Livro;
+import biblioteca.exception.ValidacaoException; // Import da exceção customizada
+
+import java.sql.SQLException;
+import java.util.List;
+
+/**
+ * Camada de serviço para a entidade Livro.
+ * Contém a lógica de negócios para o gerenciamento de livros,
+ * utilizando LivroDAO para a persistência de dados.
+ */
+public class LivroServico {
+
+    private LivroDAO livroDAO;
+
+    /**
+     * Construtor. Inicializa o DAO para livros.
+     */
+    public LivroServico() {
+        try {
+            this.livroDAO = new LivroDAO();
+        } catch (/*SQLException | OutroErroDeInicializacaoDoDAO e -- se o construtor do DAO pudesse lançar checked */
+                 RuntimeException e) {
+            throw new RuntimeException("Erro crítico ao inicializar o serviço de livro: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Adiciona um novo livro ao sistema.
+     * Realiza validações nos dados do livro antes de persistir.
+     *
+     * @param titulo Título do livro.
+     * @param autor Autor do livro.
+     * @param editora Editora do livro.
+     * @param genero Gênero do livro.
+     * @param anoPublicacao Ano de publicação (0 se não informado).
+     * @param isbn ISBN do livro.
+     * @param quantidadeDisponivel Quantidade inicial de exemplares.
+     * @return O objeto Livro criado, com seu ID preenchido.
+     * @throws ValidacaoException Se os dados do livro forem inválidos (ex: campos obrigatórios faltando, ISBN duplicado).
+     * @throws SQLException Se ocorrer um erro durante o acesso ao banco de dados.
+     */
+    public Livro adicionarLivro(String titulo, String autor, String editora, String genero,
+                                int anoPublicacao, String isbn, int quantidadeDisponivel)
+            throws ValidacaoException, SQLException {
+
+        // Validações de negócio
+        if (titulo == null || titulo.trim().isEmpty()) {
+            throw new ValidacaoException("O título do livro é obrigatório.");
+        }
+        if (autor == null || autor.trim().isEmpty()) {
+            throw new ValidacaoException("O autor do livro é obrigatório.");
+        }
+        if (isbn == null || isbn.trim().isEmpty()) {
+            throw new ValidacaoException("O ISBN do livro é obrigatório.");
+        }
+        if (quantidadeDisponivel < 0) {
+            throw new ValidacaoException("A quantidade disponível não pode ser negativa.");
+        }
+        // Validação de ano (exemplo simples, pode ser mais complexa)
+        if (anoPublicacao < 0 || (anoPublicacao > 0 && anoPublicacao < 1000) ) { // Assumindo que 0 é "não informado"
+             throw new ValidacaoException("Ano de publicação inválido.");
+        }
+
+
+        // Verificar se já existe um livro com o mesmo ISBN (regra de negócio comum)
+        List<Livro> livrosComMesmoIsbn = livroDAO.buscarLivrosPorTermo(isbn); // buscarLivrosPorTermo pode ser usado para checar ISBN
+        for (Livro l : livrosComMesmoIsbn) {
+            if (l.getIsbn().equalsIgnoreCase(isbn)) { // Confirmação exata do ISBN
+                throw new ValidacaoException("Já existe um livro cadastrado com o ISBN: " + isbn);
+            }
+        }
+        // Se buscarLivrosPorTermo for muito genérico, seria melhor ter um buscarLivroPorISBN() no DAO.
+        // Por ora, assumimos que a busca por termo no ISBN é suficiente para esta validação.
+
+        Livro novoLivro = new Livro(titulo, autor, editora, genero, anoPublicacao, isbn, quantidadeDisponivel);
+        livroDAO.adicionarLivro(novoLivro);
+        return novoLivro; // Retorna o livro com o ID preenchido pelo DAO
+    }
+
+    /**
+     * Atualiza os dados de um livro existente.
+     *
+     * @param idLivro ID do livro a ser atualizado.
+     * @param titulo Novo título.
+     * @param autor Novo autor.
+     * @param editora Nova editora.
+     * @param genero Novo gênero.
+     * @param anoPublicacao Novo ano de publicação.
+     * @param isbn Novo ISBN.
+     * @param quantidadeDisponivel Nova quantidade disponível.
+     * @throws ValidacaoException Se os dados forem inválidos, livro não encontrado, ou ISBN duplicado (para outro livro).
+     * @throws SQLException Se ocorrer um erro durante o acesso ao banco de dados.
+     */
+    public void atualizarLivro(int idLivro, String titulo, String autor, String editora, String genero,
+                               int anoPublicacao, String isbn, int quantidadeDisponivel)
+            throws ValidacaoException, SQLException {
+
+        if (titulo == null || titulo.trim().isEmpty()) throw new ValidacaoException("O título do livro é obrigatório.");
+        if (autor == null || autor.trim().isEmpty()) throw new ValidacaoException("O autor do livro é obrigatório.");
+        if (isbn == null || isbn.trim().isEmpty()) throw new ValidacaoException("O ISBN do livro é obrigatório.");
+        if (quantidadeDisponivel < 0) throw new ValidacaoException("A quantidade disponível não pode ser negativa.");
+        if (anoPublicacao < 0 || (anoPublicacao > 0 && anoPublicacao < 1000) ) {
+             throw new ValidacaoException("Ano de publicação inválido.");
+        }
+
+        Livro livroParaAtualizar = livroDAO.buscarLivroPorId(idLivro);
+        if (livroParaAtualizar == null) {
+            throw new ValidacaoException("Livro com ID " + idLivro + " não encontrado para atualização.");
+        }
+
+        // Verificar se o novo ISBN já existe para OUTRO livro
+        List<Livro> livrosComNovoIsbn = livroDAO.buscarLivrosPorTermo(isbn);
+        for (Livro l : livrosComNovoIsbn) {
+            if (l.getIsbn().equalsIgnoreCase(isbn) && l.getIdLivro() != idLivro) {
+                throw new ValidacaoException("O ISBN '" + isbn + "' já está em uso por outro livro.");
+            }
+        }
+
+        livroParaAtualizar.setTitulo(titulo);
+        livroParaAtualizar.setAutor(autor);
+        livroParaAtualizar.setEditora(editora);
+        livroParaAtualizar.setGenero(genero);
+        livroParaAtualizar.setAnoPublicacao(anoPublicacao);
+        livroParaAtualizar.setIsbn(isbn);
+        livroParaAtualizar.setQuantidadeDisponivel(quantidadeDisponivel);
+
+        livroDAO.atualizarLivro(livroParaAtualizar);
+    }
+
+    /**
+     * Remove um livro do sistema.
+     *
+     * @param idLivro ID do livro a ser removido.
+     * @throws ValidacaoException Se o livro não for encontrado.
+     * @throws SQLException Se ocorrer um erro (ex: livro associado a empréstimos ativos).
+     */
+    public void removerLivro(int idLivro) throws ValidacaoException, SQLException {
+        // Validações de negócio: verificar se o livro pode ser removido
+        // (ex: não estar em nenhum empréstimo ativo).
+        // Esta lógica pode ser complexa e envolver o EmprestimoDAO.
+        // Por ora, apenas verificamos se o livro existe.
+        Livro livro = livroDAO.buscarLivroPorId(idLivro);
+        if (livro == null) {
+            throw new ValidacaoException("Livro com ID " + idLivro + " não encontrado para remoção.");
+        }
+
+        // TODO - Lógica de verificação de empréstimos ativos para este livro antes de remover.
+        // Se houver empréstimos ativos, lançar uma ValidacaoException.
+        // Ex: if (emprestimoServico.livroPossuiEmprestimosAtivos(idLivro)) {
+        //         throw new ValidacaoException("Não é possível remover o livro. Existem empréstimos ativos associados.");
+        //      }
+
+        livroDAO.removerLivro(idLivro);
+    }
+
+    /**
+     * Busca um livro pelo seu ID.
+     *
+     * @param idLivro O ID do livro.
+     * @return O Livro encontrado, ou null caso não exista.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public Livro buscarLivroPorId(int idLivro) throws SQLException {
+        return livroDAO.buscarLivroPorId(idLivro);
+    }
+
+    /**
+     * Lista todos os livros cadastrados.
+     *
+     * @return Uma lista de todos os livros.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public List<Livro> listarTodosLivros() throws SQLException {
+        return livroDAO.listarTodosLivros();
+    }
+
+    /**
+     * Busca livros por um termo que pode corresponder ao título, autor ou ISBN.
+     *
+     * @param termo O termo de busca.
+     * @return Uma lista de livros que correspondem ao termo.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public List<Livro> buscarLivrosPorTermo(String termo) throws SQLException {
+        if (termo == null || termo.trim().isEmpty()) {
+            return listarTodosLivros(); // Retorna todos se o termo for vazio
+        }
+        return livroDAO.buscarLivrosPorTermo(termo);
+    }
+}

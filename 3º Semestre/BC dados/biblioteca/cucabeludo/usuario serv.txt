@@ -1,0 +1,202 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package biblioteca.servico;
+
+import biblioteca.dao.UsuarioDAO;
+import biblioteca.logica.Usuario;
+import biblioteca.exception.ValidacaoException;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.regex.Pattern; // Para validação de email, opcional
+
+/**
+ * Camada de serviço para a entidade Usuario (leitor).
+ * Responsável pela lógica de negócios relacionada ao gerenciamento de usuários,
+ * utilizando UsuarioDAO para interações com o banco de dados.
+ */
+public class UsuarioServico {
+
+    private UsuarioDAO usuarioDAO;
+
+    // Padrão de regex simples para validação de email (pode ser mais complexo)
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,6}$", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * Construtor. Inicializa o DAO para usuários.
+     */
+    public UsuarioServico() {
+        try {
+            this.usuarioDAO = new UsuarioDAO();
+        } catch (/*SQLException | OutroErroDeInicializacaoDoDAO e -- se o construtor do DAO pudesse lançar checked */
+                 RuntimeException e) {
+            throw new RuntimeException("Erro crítico ao inicializar o serviço de usuário: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Adiciona um novo usuário ao sistema.
+     *
+     * @param nome Nome completo do usuário.
+     * @param email Endereço de e-mail do usuário.
+     * @param cpf CPF do usuário.
+     * @param telefone Telefone de contato do usuário.
+     * @return O objeto Usuario criado, com seu ID preenchido.
+     * @throws ValidacaoException Se os dados forem inválidos (ex: campos obrigatórios, CPF/email duplicado, formato inválido).
+     * @throws SQLException Se ocorrer um erro durante o acesso ao banco de dados.
+     */
+    public Usuario adicionarUsuario(String nome, String email, String cpf, String telefone)
+            throws ValidacaoException, SQLException {
+
+        // Validações de negócio
+        if (nome == null || nome.trim().isEmpty()) {
+            throw new ValidacaoException("O nome do usuário é obrigatório.");
+        }
+        if (email == null || email.trim().isEmpty()) {
+            throw new ValidacaoException("O e-mail do usuário é obrigatório.");
+        }
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            throw new ValidacaoException("Formato de e-mail inválido.");
+        }
+        if (cpf == null || cpf.trim().isEmpty()) {
+            throw new ValidacaoException("O CPF do usuário é obrigatório.");
+        }
+        // Remover caracteres não numéricos do CPF para validação e armazenamento consistente
+        String cpfLimpo = cpf.replaceAll("[^0-9]", "");
+        if (cpfLimpo.length() != 11) { // Validação básica de tamanho do CPF
+            throw new ValidacaoException("CPF deve conter 11 dígitos numéricos.");
+        }
+        // Adicionar validação de algoritmo do CPF aqui seria ideal.
+
+        // Verificar duplicidade de CPF
+        List<Usuario> usuariosComMesmoCpf = usuarioDAO.buscarUsuariosPorTermo(cpfLimpo); // Assumindo que buscarPorTermo pega CPF exato
+        for (Usuario u : usuariosComMesmoCpf) {
+            if (u.getCpf().replaceAll("[^0-9]", "").equals(cpfLimpo)) {
+                throw new ValidacaoException("Já existe um usuário cadastrado com o CPF: " + cpf);
+            }
+        }
+        // Verificar duplicidade de Email
+        List<Usuario> usuariosComMesmoEmail = usuarioDAO.buscarUsuariosPorTermo(email);
+         for (Usuario u : usuariosComMesmoEmail) {
+            if (u.getEmail().equalsIgnoreCase(email)) {
+                throw new ValidacaoException("Já existe um usuário cadastrado com o E-mail: " + email);
+            }
+        }
+
+
+        Usuario novoUsuario = new Usuario(nome, email, cpfLimpo, telefone); // Salva o CPF limpo
+        usuarioDAO.adicionarUsuario(novoUsuario);
+        return novoUsuario;
+    }
+
+    /**
+     * Atualiza os dados de um usuário existente.
+     *
+     * @param idUsuario ID do usuário a ser atualizado.
+     * @param nome Novo nome.
+     * @param email Novo e-mail.
+     * @param cpf Novo CPF.
+     * @param telefone Novo telefone.
+     * @throws ValidacaoException Se os dados forem inválidos, usuário não encontrado, ou CPF/email duplicado (para outro usuário).
+     * @throws SQLException Se ocorrer um erro durante o acesso ao banco de dados.
+     */
+    public void atualizarUsuario(int idUsuario, String nome, String email, String cpf, String telefone)
+            throws ValidacaoException, SQLException {
+
+        if (nome == null || nome.trim().isEmpty()) throw new ValidacaoException("O nome do usuário é obrigatório.");
+        if (email == null || email.trim().isEmpty()) throw new ValidacaoException("O e-mail do usuário é obrigatório.");
+        if (!EMAIL_PATTERN.matcher(email).matches()) throw new ValidacaoException("Formato de e-mail inválido.");
+        if (cpf == null || cpf.trim().isEmpty()) throw new ValidacaoException("O CPF do usuário é obrigatório.");
+        
+        String cpfLimpo = cpf.replaceAll("[^0-9]", "");
+        if (cpfLimpo.length() != 11) throw new ValidacaoException("CPF deve conter 11 dígitos numéricos.");
+
+        Usuario usuarioParaAtualizar = usuarioDAO.buscarUsuarioPorId(idUsuario);
+        if (usuarioParaAtualizar == null) {
+            throw new ValidacaoException("Usuário com ID " + idUsuario + " não encontrado para atualização.");
+        }
+
+        // Verificar duplicidade de CPF para OUTRO usuário
+        List<Usuario> usuariosComNovoCpf = usuarioDAO.buscarUsuariosPorTermo(cpfLimpo);
+        for (Usuario u : usuariosComNovoCpf) {
+            if (u.getCpf().replaceAll("[^0-9]", "").equals(cpfLimpo) && u.getIdUsuario() != idUsuario) {
+                throw new ValidacaoException("O CPF '" + cpf + "' já está em uso por outro usuário.");
+            }
+        }
+        // Verificar duplicidade de Email para OUTRO usuário
+        List<Usuario> usuariosComNovoEmail = usuarioDAO.buscarUsuariosPorTermo(email);
+        for (Usuario u : usuariosComNovoEmail) {
+            if (u.getEmail().equalsIgnoreCase(email) && u.getIdUsuario() != idUsuario) {
+                throw new ValidacaoException("O E-mail '" + email + "' já está em uso por outro usuário.");
+            }
+        }
+
+        usuarioParaAtualizar.setNome(nome);
+        usuarioParaAtualizar.setEmail(email);
+        usuarioParaAtualizar.setCpf(cpfLimpo); // Salva o CPF limpo
+        usuarioParaAtualizar.setTelefone(telefone);
+
+        usuarioDAO.atualizarUsuario(usuarioParaAtualizar);
+    }
+
+    /**
+     * Remove um usuário do sistema.
+     *
+     * @param idUsuario ID do usuário a ser removido.
+     * @throws ValidacaoException Se o usuário não for encontrado.
+     * @throws SQLException Se ocorrer um erro (ex: usuário associado a empréstimos ativos).
+     */
+    public void removerUsuario(int idUsuario) throws ValidacaoException, SQLException {
+        Usuario usuario = usuarioDAO.buscarUsuarioPorId(idUsuario);
+        if (usuario == null) {
+            throw new ValidacaoException("Usuário com ID " + idUsuario + " não encontrado para remoção.");
+        }
+
+        // TODO - Lógica de verificação de empréstimos ativos para este usuário antes de remover.
+        // Se houver empréstimos ativos, lançar uma ValidacaoException.
+        // Ex: if (emprestimoServico.usuarioPossuiEmprestimosAtivos(idUsuario)) {
+        //         throw new ValidacaoException("Não é possível remover o usuário. Existem empréstimos ativos associados.");
+        //      }
+
+        usuarioDAO.removerUsuario(idUsuario);
+    }
+
+    /**
+     * Busca um usuário pelo seu ID.
+     *
+     * @param idUsuario O ID do usuário.
+     * @return O Usuario encontrado, ou null caso não exista.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public Usuario buscarUsuarioPorId(int idUsuario) throws SQLException {
+        return usuarioDAO.buscarUsuarioPorId(idUsuario);
+    }
+
+    /**
+     * Lista todos os usuários cadastrados.
+     *
+     * @return Uma lista de todos os usuários.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public List<Usuario> listarTodosUsuarios() throws SQLException {
+        return usuarioDAO.listarTodosUsuarios();
+    }
+
+    /**
+     * Busca usuários por um termo que pode corresponder ao nome, CPF ou e-mail.
+     *
+     * @param termo O termo de busca.
+     * @return Uma lista de usuários que correspondem ao termo.
+     * @throws SQLException Se ocorrer um erro de acesso ao banco.
+     */
+    public List<Usuario> buscarUsuariosPorTermo(String termo) throws SQLException {
+        if (termo == null || termo.trim().isEmpty()) {
+            return listarTodosUsuarios();
+        }
+        // O DAO buscarUsuariosPorTermo já lida com a lógica de LIKE e LOWER.
+        return usuarioDAO.buscarUsuariosPorTermo(termo);
+    }
+}

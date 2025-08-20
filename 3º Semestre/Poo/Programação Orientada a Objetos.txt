@@ -1,0 +1,307 @@
+Programação Orientada a Objetos (POO) – Resumo para Prova
+1. Conceitos Fundamentais
+Classes
+Uma classe é um molde para criar objetos.
+
+Contém atributos (dados) e métodos (comportamentos).
+
+Sintaxe básica:
+
+java
+Copiar
+Editar
+public class NomeDaClasse {
+    // Atributos
+    // Métodos
+}
+Visibilidade:
+
+public: acessível por qualquer classe.
+
+private: acessível apenas dentro da própria classe.
+
+Objetos
+Instâncias de uma classe.
+
+Têm características (atributos) e comportamentos (métodos).
+
+Exemplo:
+
+java
+Copiar
+Editar
+Televisor tv = new Televisor();
+Aqui, tv é um objeto da classe Televisor.
+
+2. Encapsulamento
+Definição: Restrição de acesso a atributos e métodos.
+
+Vantagens:
+
+Oculta detalhes de implementação.
+
+Torna o código mais organizado e seguro.
+
+Minimiza erros e facilita manutenção.
+
+Modificadores de Acesso
+public: Sem restrição de acesso.
+
+private: Somente a própria classe pode acessar.
+
+protected: Acessível dentro da própria classe e subclasses.
+
+Padrão de Pacote: Acessível apenas por classes no mesmo pacote.
+
+Métodos Get e Set
+Usados para acessar atributos privados.
+
+Exemplo (Java):
+
+java
+Copiar
+Editar
+public class Pessoa {
+    private String nome;
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+}
+3. Construtores e Destrutores
+Construtor
+Método especial que inicializa um objeto.
+
+Tem o mesmo nome da classe.
+
+Exemplo:
+
+java
+Copiar
+Editar
+public class Pessoa {
+    private String nome;
+
+    // Construtor
+    public Pessoa(String nome) {
+        this.nome = nome;
+    }
+}
+Se não for declarado, o Java cria um construtor padrão.
+
+Destrutor
+Java faz isso automaticamente com o Garbage Collector.
+
+Libera memória quando o objeto não é mais utilizado.
+
+4. Polimorfismo
+Permite que um mesmo método tenha diferentes comportamentos.
+
+Tipos de Polimorfismo
+1. Sobrecarga (Overloading)
+Mesmo nome de método, mas parâmetros diferentes.
+
+Exemplo:
+
+java
+Copiar
+Editar
+public class Calculadora {
+    public int soma(int a, int b) {
+        return a + b;
+    }
+
+    public double soma(double a, double b) {
+        return a + b;
+    }
+}
+2. Sobrescrita (Overriding)
+Uma subclasse redefine um método da superclasse.
+
+Exemplo:
+
+java
+Copiar
+Editar
+class Animal {
+    void fazerSom() {
+        System.out.println("Som genérico");
+    }
+}
+
+class Cachorro extends Animal {
+    @Override
+    void fazerSom() {
+        System.out.println("Latido");
+    }
+}
+Dicas para a Prova
+✔️ Entenda bem os conceitos de classes e objetos.
+✔️ Pratique a criação de classes com atributos e métodos.
+✔️ Saiba como usar encapsulamento (private, public, protected).
+✔️ Estude exemplos de getters e setters.
+✔️ Revise construtores e destrutores.
+✔️ Diferencie sobrecarga e sobrescrita.
+✔️ Pratique a escrita e leitura de código Java.
+
+Se precisar de mais alguma explicação ou exemplos, me avise! Boa prova! 🚀
+
+
+
+
+
+O ChatGPT disse:
+Finished thinking.
+Aqui está um código simples de um controle remoto para televisão, escrito de uma forma clara para que você possa copiar no papel facilmente. Ele segue os princípios da Programação Orientada a Objetos (POO), utilizando encapsulamento e métodos getters e setters.
+
+Código do Controle Remoto da TV
+java
+Copiar
+Editar
+// Classe Televisao que representa a TV
+public class Televisao {
+    private int volume;  // Atributo para o volume
+    private int canal;   // Atributo para o canal
+
+    // Construtor para inicializar volume e canal
+    public Televisao() {
+        this.volume = 10;  // Volume inicial
+        this.canal = 1;    // Canal inicial
+    }
+
+    // Método para aumentar o volume (máx 100)
+    public void aumentarVolume() {
+        if (volume < 100) {
+            volume++;
+        }
+    }
+
+    // Método para diminuir o volume (mín 0)
+    public void diminuirVolume() {
+        if (volume > 0) {
+            volume--;
+        }
+    }
+
+    // Método para aumentar o canal (máx 999)
+    public void aumentarCanal() {
+        if (canal < 999) {
+            canal++;
+        }
+    }
+
+    // Método para diminuir o canal (mín 1)
+    public void diminuirCanal() {
+        if (canal > 1) {
+            canal--;
+        }
+    }
+
+    // Método para definir um canal específico
+    public void setCanal(int novoCanal) {
+        if (novoCanal >= 1 && novoCanal <= 999) {
+            this.canal = novoCanal;
+        }
+    }
+
+    // Métodos getters para obter o volume e canal
+    public int getVolume() {
+        return volume;
+    }
+
+    public int getCanal() {
+        return canal;
+    }
+
+    // Método para exibir o status da TV
+    public void mostrarStatus() {
+        System.out.println("Volume: " + volume + " | Canal: " + canal);
+    }
+}
+
+// Classe ControleRemoto que controla a TV
+public class ControleRemoto {
+    private Televisao tv;  // Atributo que representa a TV controlada
+
+    // Construtor para associar o controle a uma TV
+    public ControleRemoto(Televisao tv) {
+        this.tv = tv;
+    }
+
+    // Métodos que chamam os métodos da TV
+    public void aumentarVolume() {
+        tv.aumentarVolume();
+    }
+
+    public void diminuirVolume() {
+        tv.diminuirVolume();
+    }
+
+    public void aumentarCanal() {
+        tv.aumentarCanal();
+    }
+
+    public void diminuirCanal() {
+        tv.diminuirCanal();
+    }
+
+    public void trocarCanal(int canal) {
+        tv.setCanal(canal);
+    }
+
+    public void exibirStatus() {
+        tv.mostrarStatus();
+    }
+}
+
+// Classe principal (main) para simular o funcionamento
+public class Main {
+    public static void main(String[] args) {
+        Televisao tv = new Televisao();  // Criando um objeto TV
+        ControleRemoto controle = new ControleRemoto(tv);  // Criando o controle
+
+        // Simulando comandos do controle remoto
+        controle.aumentarVolume();
+        controle.aumentarCanal();
+        controle.trocarCanal(5);
+
+        // Exibindo status da TV
+        controle.exibirStatus();
+    }
+}
+Explicação do Código
+📌 Classe Televisao
+
+Contém os atributos volume e canal, ambos privados (encapsulamento).
+
+Possui métodos para aumentar/diminuir volume e canal.
+
+Implementa métodos getVolume() e getCanal() para acessar os valores.
+
+Método mostrarStatus() exibe o volume e canal atuais.
+
+📌 Classe ControleRemoto
+
+Representa o controle remoto, que tem uma TV associada.
+
+Seus métodos chamam os métodos da TV para controlar o volume e canal.
+
+📌 Classe Main (Programa Principal)
+
+Cria um objeto Televisao e um ControleRemoto.
+
+Simula o uso do controle remoto, alterando canal e volume.
+
+Exibe o estado atual da TV.
+
+Dicas para a Prova 📝
+✅ Escreva com calma, organizando o código com indentação.
+✅ Coloque comentários para lembrar o que cada parte faz.
+✅ Explique sua lógica ao professor caso seja necessário.
+✅ Se não lembrar tudo, escreva o básico: uma classe Televisao com métodos para volume e canal já garante boa parte dos pontos!
+
+Boa prova! 🚀📚

@@ -1,0 +1,159 @@
+/*
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
+ * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
+ */
+package com.mycompany.biblioteca;
+
+import biblioteca.logica.Funcionario; // Para receber o funcionário logado
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
+public class TelaPrincipalBiblioteca extends JFrame {
+
+    private JTabbedPane abasPrincipais;
+    private JLabel lblInfoUsuario;
+    private JButton btnSair;
+    private Funcionario funcionarioLogado;
+
+    // Painéis para cada aba
+    private PainelEmprestimosDevolucoes painelEmprestimos;
+    private PainelGerenciarLivros painelLivros;
+    private PainelGerenciarUsuarios painelUsuarios;
+    private PainelGerenciarFuncionarios painelFuncionarios;
+    private PainelHistoricoMovimentacoes painelHistoricoMovimentacoes;
+
+
+    public TelaPrincipalBiblioteca(Funcionario funcionario) {
+        this.funcionarioLogado = funcionario;
+
+        setTitle("Sistema de Gerenciamento de Biblioteca XYZ");
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // Para tratar o fechamento
+        setSize(1000, 700); // Tamanho inicial, pode ser ajustado pelo pack() depois
+        setLocationRelativeTo(null);
+
+        // --- Painel Superior com Info do Usuário e Botão Sair ---
+        JPanel painelTopo = new JPanel(new BorderLayout(10,0));
+        painelTopo.setBorder(new EmptyBorder(10, 15, 10, 15));
+        // painelTopo.setBackground(new Color(230, 230, 230)); // Opcional: cor de fundo para o topo
+
+        JLabel lblTituloApp = new JLabel("Biblioteca XYZ");
+        lblTituloApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        painelTopo.add(lblTituloApp, BorderLayout.WEST);
+
+        JPanel painelUsuarioSair = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10,0));
+        painelUsuarioSair.setOpaque(false); // Para herdar cor de fundo do painelTopo se houver
+        lblInfoUsuario = new JLabel("Logado como: " + (funcionarioLogado != null ? funcionarioLogado.getNome() : "Visitante"));
+        lblInfoUsuario.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        painelUsuarioSair.add(lblInfoUsuario);
+
+        btnSair = new JButton("Sair");
+        // Tente adicionar um ícone real aqui:
+        // try {
+        //     ImageIcon iconSair = new ImageIcon(new ImageIcon(getClass().getResource("/icons/logout_icon_small.png")).getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH));
+        //     btnSair.setIcon(iconSair);
+        // } catch (Exception e) {
+        //     System.err.println("Ícone de logout não encontrado: " + e.getMessage());
+        // }
+        btnSair.setToolTipText("Fazer Logout e Voltar para Tela de Login");
+        btnSair.setMargin(new Insets(2,8,2,8)); // Padding interno menor para o botão
+        btnSair.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnSair.addActionListener(e -> confirmarLogout());
+        painelUsuarioSair.add(btnSair);
+
+        painelTopo.add(painelUsuarioSair, BorderLayout.EAST);
+        add(painelTopo, BorderLayout.NORTH);
+
+
+        // --- Abas Principais ---
+        abasPrincipais = new JTabbedPane();
+        abasPrincipais.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        // Criar e adicionar os painéis das abas
+        painelEmprestimos = new PainelEmprestimosDevolucoes(this.funcionarioLogado);
+        painelLivros = new PainelGerenciarLivros();
+        painelUsuarios = new PainelGerenciarUsuarios();
+        painelFuncionarios = new PainelGerenciarFuncionarios();
+        painelHistoricoMovimentacoes = new PainelHistoricoMovimentacoes();
+
+
+        // Adicionar painéis às abas na ordem desejada
+        // Adicionar ícones às abas se desejar (substitua null pelo ImageIcon)
+        abasPrincipais.addTab("Empréstimos/Devoluções", null, painelEmprestimos, "Registrar empréstimos e devoluções");
+        abasPrincipais.addTab("Gerenciar Livros", null, painelLivros, "Gerenciar o acervo de livros");
+        abasPrincipais.addTab("Gerenciar Usuários", null, painelUsuarios, "Gerenciar usuários da biblioteca");
+        abasPrincipais.addTab("Gerenciar Funcionários", null, painelFuncionarios, "Gerenciar equipe da biblioteca");
+        abasPrincipais.addTab("Histórico Movimentações", null, painelHistoricoMovimentacoes, "Visualizar histórico completo com filtros");
+
+        add(abasPrincipais, BorderLayout.CENTER);
+
+        // Tratamento para o botão de fechar da janela
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                confirmarSaidaAplicacao();
+            }
+        });
+
+        pack(); // Ajusta o tamanho da janela aos componentes preferidos
+        setMinimumSize(new Dimension(800, 600)); // Define um tamanho mínimo razoável
+        setLocationRelativeTo(null); // Re-centralizar após o pack se necessário
+    }
+
+    private void confirmarLogout() {
+        int resposta = JOptionPane.showConfirmDialog(this,
+                "Tem certeza que deseja fazer logout?",
+                "Confirmar Logout",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE);
+        if (resposta == JOptionPane.YES_OPTION) {
+            fecharRecursosDeTodosOsPaineis(); // Fecha DAOs
+            this.dispose(); // Fecha a tela do menu
+            // Certifique-se de que TelaLogin está no pacote correto ou importe-a
+            SwingUtilities.invokeLater(() -> new TelaLogin().setVisible(true)); // Abre a tela de login novamente
+        }
+    }
+
+    private void confirmarSaidaAplicacao() {
+         int resposta = JOptionPane.showConfirmDialog(this,
+                "Tem certeza que deseja fechar a aplicação?",
+                "Confirmar Saída",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (resposta == JOptionPane.YES_OPTION) {
+            fecharRecursosDeTodosOsPaineis(); // Fecha DAOs
+            System.exit(0); // Encerra a aplicação
+        }
+    }
+
+    private void fecharRecursosDeTodosOsPaineis() {
+        System.out.println("Fechando recursos dos painéis...");
+        if (painelEmprestimos != null) painelEmprestimos.fecharRecursosDAO();
+        if (painelLivros != null) painelLivros.fecharRecursosDAO();
+        if (painelUsuarios != null) painelUsuarios.fecharRecursosDAO();
+        if (painelFuncionarios != null) painelFuncionarios.fecharRecursosDAO();
+        if (painelHistoricoMovimentacoes != null) painelHistoricoMovimentacoes.fecharRecursosDAO();
+    }
+
+    // (Opcional) Um método main aqui para testar esta tela diretamente,
+    // mas o ideal é que MainApp.java chame TelaLogin, que por sua vez chama esta.
+    /*
+    public static void main(String[] args) {
+        try {
+            UIManager.setLookAndFeel(new com.formdev.flatlaf.FlatLightLaf());
+        } catch (Exception ex) {
+            System.err.println("Falha ao carregar o Look and Feel: " + ex.getMessage());
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            // Para teste, crie um funcionário mock
+            Funcionario funcMock = new Funcionario("Admin Teste", "Admin", "admin", "---");
+            funcMock.setIdFuncionario(1);
+            new TelaPrincipalBiblioteca(funcMock).setVisible(true);
+        });
+    }
+    */
+}
